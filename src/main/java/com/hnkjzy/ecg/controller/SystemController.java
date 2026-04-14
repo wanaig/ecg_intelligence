@@ -1,21 +1,19 @@
 package com.hnkjzy.ecg.controller;
 
-/**
- * 文件说明：控制器文件。
- * 主要职责：负责接收前端菜单请求、参数解析并返回统一 REST 响应。
- * 维护约定：注释采用中文，便于临床业务沟通、二次开发与运维排查。
- */
-
-
 import com.hnkjzy.ecg.common.ApiResponse;
-import com.hnkjzy.ecg.model.DictItem;
-import com.hnkjzy.ecg.model.DoctorInfo;
-import com.hnkjzy.ecg.model.WarningLevelItem;
-import com.hnkjzy.ecg.model.WardInfo;
-import com.hnkjzy.ecg.service.EcgBusinessService;
+import com.hnkjzy.ecg.common.PageResult;
+import com.hnkjzy.ecg.dto.SystemDto;
+import com.hnkjzy.ecg.service.ApiSpecService;
+import com.hnkjzy.ecg.vo.CommonVo;
+import com.hnkjzy.ecg.vo.SystemVo;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import java.util.List;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -26,239 +24,109 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/system")
-/**
- * 类说明：SystemController。
- * 业务定位：负责接收前端菜单请求、参数解析并返回统一 REST 响应。
- * 说明补充：该类中的字段、方法和返回值均遵循统一命名与结构规范。
- */
+@Validated
 public class SystemController {
 
-    private final EcgBusinessService ecgBusinessService;
+    private final ApiSpecService apiSpecService;
 
-    public SystemController(EcgBusinessService ecgBusinessService) {
-        this.ecgBusinessService = ecgBusinessService;
+    public SystemController(ApiSpecService apiSpecService) {
+        this.apiSpecService = apiSpecService;
     }
 
-    @GetMapping("/wards")
-    /**
-     * 接口说明：查询接口，方法名为 listWards。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<List<WardInfo>> listWards() {
-        return ApiResponse.success(ecgBusinessService.listWards());
+    @GetMapping("/users")
+    public ApiResponse<PageResult<SystemVo.UserItem>> users(@RequestParam(required = false) String userName,
+                                                            @RequestParam(required = false) String phone,
+                                                            @RequestParam(required = false) String status,
+                                                            @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+                                                            @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        return ApiResponse.success(apiSpecService.pageUsers(userName, phone, status, pageNum, pageSize));
     }
 
-    @GetMapping("/wards/{id}")
-    /**
-     * 接口说明：业务处理接口，方法名为 wardDetail。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<WardInfo> wardDetail(@PathVariable Integer id) {
-        WardInfo wardInfo = ecgBusinessService.getWard(id);
-        return wardInfo == null ? ApiResponse.fail("病区不存在") : ApiResponse.success(wardInfo);
+    @PostMapping("/users")
+    public ApiResponse<SystemVo.UserItem> createUser(@Valid @RequestBody SystemDto.UserUpsertRequest request) {
+        return ApiResponse.success(apiSpecService.createUser(request));
     }
 
-    @PostMapping("/wards")
-    /**
-     * 接口说明：新增接口，方法名为 createWard。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<WardInfo> createWard(@RequestBody WardInfo wardInfo) {
-        return ApiResponse.success("创建成功", ecgBusinessService.createWard(wardInfo));
+    @PutMapping("/users/{id}")
+    public ApiResponse<SystemVo.UserItem> updateUser(@PathVariable @Positive(message = "id必须为正数") Long id,
+                                                     @Valid @RequestBody SystemDto.UserUpsertRequest request) {
+        return ApiResponse.success(apiSpecService.updateUser(id, request));
     }
 
-    @PutMapping("/wards/{id}")
-    /**
-     * 接口说明：修改接口，方法名为 updateWard。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> updateWard(@PathVariable Integer id, @RequestBody WardInfo wardInfo) {
-        return ApiResponse.success(ecgBusinessService.updateWard(id, wardInfo));
+    @PatchMapping("/users/{id}/status")
+    public ApiResponse<CommonVo.OperationResult> updateUserStatus(
+            @PathVariable @Positive(message = "id必须为正数") Long id,
+            @Valid @RequestBody SystemDto.UserStatusPatchRequest request) {
+        String status = request.getStatus();
+        return ApiResponse.success(apiSpecService.updateUserStatus(id, status));
     }
 
-    @DeleteMapping("/wards/{id}")
-    /**
-     * 接口说明：删除接口，方法名为 deleteWard。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> deleteWard(@PathVariable Integer id) {
-        return ApiResponse.success(ecgBusinessService.deleteWard(id));
+    @DeleteMapping("/users/{id}")
+    public ApiResponse<CommonVo.OperationResult> deleteUser(@PathVariable @Positive(message = "id必须为正数") Long id) {
+        return ApiResponse.success(apiSpecService.deleteUser(id));
     }
 
-    @GetMapping("/doctors")
-    /**
-     * 接口说明：查询接口，方法名为 listDoctors。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<List<DoctorInfo>> listDoctors(@RequestParam(required = false) Integer wardId,
-                                                     @RequestParam(required = false) Integer isActive) {
-        return ApiResponse.success(ecgBusinessService.listDoctors(wardId, isActive));
+    @GetMapping("/departments")
+    public ApiResponse<PageResult<SystemVo.DepartmentItem>> departments(
+            @RequestParam(required = false) String deptName,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+            @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        return ApiResponse.success(apiSpecService.pageDepartments(deptName, status, pageNum, pageSize));
     }
 
-    @GetMapping("/doctors/{id}")
-    /**
-     * 接口说明：业务处理接口，方法名为 doctorDetail。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<DoctorInfo> doctorDetail(@PathVariable Integer id) {
-        DoctorInfo doctorInfo = ecgBusinessService.getDoctor(id);
-        return doctorInfo == null ? ApiResponse.fail("医生不存在") : ApiResponse.success(doctorInfo);
+    @PostMapping("/departments")
+    public ApiResponse<SystemVo.DepartmentItem> createDepartment(
+            @Valid @RequestBody SystemDto.DepartmentUpsertRequest request) {
+        return ApiResponse.success(apiSpecService.createDepartment(request));
     }
 
-    @PostMapping("/doctors")
-    /**
-     * 接口说明：新增接口，方法名为 createDoctor。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<DoctorInfo> createDoctor(@RequestBody DoctorInfo doctorInfo) {
-        return ApiResponse.success("创建成功", ecgBusinessService.createDoctor(doctorInfo));
+    @PutMapping("/departments/{id}")
+    public ApiResponse<SystemVo.DepartmentItem> updateDepartment(
+            @PathVariable @Positive(message = "id必须为正数") Long id,
+            @Valid @RequestBody SystemDto.DepartmentUpsertRequest request) {
+        return ApiResponse.success(apiSpecService.updateDepartment(id, request));
     }
 
-    @PutMapping("/doctors/{id}")
-    /**
-     * 接口说明：修改接口，方法名为 updateDoctor。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> updateDoctor(@PathVariable Integer id, @RequestBody DoctorInfo doctorInfo) {
-        return ApiResponse.success(ecgBusinessService.updateDoctor(id, doctorInfo));
+    @DeleteMapping("/departments/{id}")
+    public ApiResponse<CommonVo.OperationResult> deleteDepartment(@PathVariable @Positive(message = "id必须为正数") Long id) {
+        return ApiResponse.success(apiSpecService.deleteDepartment(id));
     }
 
-    @DeleteMapping("/doctors/{id}")
-    /**
-     * 接口说明：删除接口，方法名为 deleteDoctor。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> deleteDoctor(@PathVariable Integer id) {
-        return ApiResponse.success(ecgBusinessService.deleteDoctor(id));
+    @GetMapping("/roles")
+    public ApiResponse<PageResult<SystemVo.RoleItem>> roles(@RequestParam(required = false) String roleName,
+                                                            @RequestParam(required = false) String status,
+                                                            @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+                                                            @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        return ApiResponse.success(apiSpecService.pageRoles(roleName, status, pageNum, pageSize));
     }
 
-    @GetMapping("/dict/warning-levels")
-    /**
-     * 接口说明：查询接口，方法名为 listWarningLevels。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<List<WarningLevelItem>> listWarningLevels() {
-        return ApiResponse.success(ecgBusinessService.listWarningLevels());
+    @PostMapping("/roles")
+    public ApiResponse<SystemVo.RoleItem> createRole(@Valid @RequestBody SystemDto.RoleUpsertRequest request) {
+        return ApiResponse.success(apiSpecService.createRole(request));
     }
 
-    @PostMapping("/dict/warning-levels")
-    /**
-     * 接口说明：新增接口，方法名为 createWarningLevel。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<WarningLevelItem> createWarningLevel(@RequestBody WarningLevelItem item) {
-        return ApiResponse.success("创建成功", ecgBusinessService.createWarningLevel(item));
+    @PutMapping("/roles/{id}")
+    public ApiResponse<SystemVo.RoleItem> updateRole(@PathVariable @Positive(message = "id必须为正数") Long id,
+                                                     @Valid @RequestBody SystemDto.RoleUpsertRequest request) {
+        return ApiResponse.success(apiSpecService.updateRole(id, request));
     }
 
-    @PutMapping("/dict/warning-levels/{id}")
-    /**
-     * 接口说明：修改接口，方法名为 updateWarningLevel。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> updateWarningLevel(@PathVariable Integer id, @RequestBody WarningLevelItem item) {
-        return ApiResponse.success(ecgBusinessService.updateWarningLevel(id, item));
+    @DeleteMapping("/roles/{id}")
+    public ApiResponse<CommonVo.OperationResult> deleteRole(@PathVariable @Positive(message = "id必须为正数") Long id) {
+        return ApiResponse.success(apiSpecService.deleteRole(id));
     }
 
-    @DeleteMapping("/dict/warning-levels/{id}")
-    /**
-     * 接口说明：删除接口，方法名为 deleteWarningLevel。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> deleteWarningLevel(@PathVariable Integer id) {
-        return ApiResponse.success(ecgBusinessService.deleteWarningLevel(id));
+    @GetMapping("/menus/tree")
+    public ApiResponse<List<SystemVo.MenuTreeItem>> menuTree() {
+        return ApiResponse.success(apiSpecService.getMenuTree());
     }
 
-    @GetMapping("/dict/warning-types")
-    /**
-     * 接口说明：查询接口，方法名为 listWarningTypes。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<List<DictItem>> listWarningTypes() {
-        return ApiResponse.success(ecgBusinessService.listWarningTypes());
-    }
-
-    @PostMapping("/dict/warning-types")
-    /**
-     * 接口说明：新增接口，方法名为 createWarningType。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<DictItem> createWarningType(@RequestBody DictItem item) {
-        return ApiResponse.success("创建成功", ecgBusinessService.createWarningType(item));
-    }
-
-    @PutMapping("/dict/warning-types/{id}")
-    /**
-     * 接口说明：修改接口，方法名为 updateWarningType。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> updateWarningType(@PathVariable Integer id, @RequestBody DictItem item) {
-        return ApiResponse.success(ecgBusinessService.updateWarningType(id, item));
-    }
-
-    @DeleteMapping("/dict/warning-types/{id}")
-    /**
-     * 接口说明：删除接口，方法名为 deleteWarningType。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> deleteWarningType(@PathVariable Integer id) {
-        return ApiResponse.success(ecgBusinessService.deleteWarningType(id));
-    }
-
-    @GetMapping("/dict/equipment-types")
-    /**
-     * 接口说明：查询接口，方法名为 listEquipmentTypes。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<List<DictItem>> listEquipmentTypes() {
-        return ApiResponse.success(ecgBusinessService.listEquipmentTypes());
-    }
-
-    @PostMapping("/dict/equipment-types")
-    /**
-     * 接口说明：新增接口，方法名为 createEquipmentType。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<DictItem> createEquipmentType(@RequestBody DictItem item) {
-        return ApiResponse.success("创建成功", ecgBusinessService.createEquipmentType(item));
-    }
-
-    @PutMapping("/dict/equipment-types/{id}")
-    /**
-     * 接口说明：修改接口，方法名为 updateEquipmentType。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> updateEquipmentType(@PathVariable Integer id, @RequestBody DictItem item) {
-        return ApiResponse.success(ecgBusinessService.updateEquipmentType(id, item));
-    }
-
-    @DeleteMapping("/dict/equipment-types/{id}")
-    /**
-     * 接口说明：删除接口，方法名为 deleteEquipmentType。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> deleteEquipmentType(@PathVariable Integer id) {
-        return ApiResponse.success(ecgBusinessService.deleteEquipmentType(id));
+    @PutMapping("/roles/{id}/menus")
+    public ApiResponse<CommonVo.OperationResult> updateRoleMenus(
+            @PathVariable @Positive(message = "id必须为正数") Long id,
+            @Valid @RequestBody SystemDto.RoleMenuUpdateRequest request) {
+        List<Long> menuIds = request.getMenuIds();
+        return ApiResponse.success(apiSpecService.updateRoleMenus(id, menuIds));
     }
 }

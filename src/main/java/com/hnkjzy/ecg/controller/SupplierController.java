@@ -1,17 +1,16 @@
 package com.hnkjzy.ecg.controller;
 
-/**
- * 文件说明：控制器文件。
- * 主要职责：负责接收前端菜单请求、参数解析并返回统一 REST 响应。
- * 维护约定：注释采用中文，便于临床业务沟通、二次开发与运维排查。
- */
-
-
 import com.hnkjzy.ecg.common.ApiResponse;
-import com.hnkjzy.ecg.model.EquipmentInfo;
-import com.hnkjzy.ecg.model.SupplierSummary;
-import com.hnkjzy.ecg.service.EcgBusinessService;
+import com.hnkjzy.ecg.common.PageResult;
+import com.hnkjzy.ecg.dto.SupplierDto;
+import com.hnkjzy.ecg.service.ApiSpecService;
+import com.hnkjzy.ecg.vo.CommonVo;
+import com.hnkjzy.ecg.vo.SupplierVo;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import java.util.List;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,80 +22,96 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/suppliers")
-/**
- * 类说明：SupplierController。
- * 业务定位：负责接收前端菜单请求、参数解析并返回统一 REST 响应。
- * 说明补充：该类中的字段、方法和返回值均遵循统一命名与结构规范。
- */
+@RequestMapping("/api/supplier")
+@Validated
 public class SupplierController {
 
-    private final EcgBusinessService ecgBusinessService;
+    private final ApiSpecService apiSpecService;
 
-    public SupplierController(EcgBusinessService ecgBusinessService) {
-        this.ecgBusinessService = ecgBusinessService;
+    public SupplierController(ApiSpecService apiSpecService) {
+        this.apiSpecService = apiSpecService;
     }
 
-    @GetMapping
-    /**
-     * 接口说明：查询接口，方法名为 summary。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<List<SupplierSummary>> summary() {
-        return ApiResponse.success(ecgBusinessService.listSupplierSummary());
+    @GetMapping("/vendors")
+    public ApiResponse<PageResult<SupplierVo.VendorItem>> vendors(@RequestParam(required = false) String vendorName,
+                                                                  @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+                                                                  @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        return ApiResponse.success(apiSpecService.pageVendors(vendorName, pageNum, pageSize));
     }
 
-    @GetMapping("/equipments")
-    /**
-     * 接口说明：查询接口，方法名为 listEquipments。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<List<EquipmentInfo>> listEquipments(@RequestParam(required = false) String manufacturer,
-                                                           @RequestParam(required = false) Integer wardId,
-                                                           @RequestParam(required = false) String equipmentType) {
-        return ApiResponse.success(ecgBusinessService.listEquipments(manufacturer, wardId, equipmentType));
+    @PostMapping("/vendors")
+    public ApiResponse<SupplierVo.VendorItem> createVendor(@Valid @RequestBody SupplierDto.VendorUpsertRequest request) {
+        return ApiResponse.success(apiSpecService.createVendor(request));
     }
 
-    @GetMapping("/equipments/{id}")
-    /**
-     * 接口说明：业务处理接口，方法名为 equipmentDetail。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<EquipmentInfo> equipmentDetail(@PathVariable Integer id) {
-        EquipmentInfo equipmentInfo = ecgBusinessService.getEquipment(id);
-        return equipmentInfo == null ? ApiResponse.fail("设备不存在") : ApiResponse.success(equipmentInfo);
+    @PutMapping("/vendors/{id}")
+    public ApiResponse<SupplierVo.VendorItem> updateVendor(@PathVariable @Positive(message = "id必须为正数") Long id,
+                                                           @Valid @RequestBody SupplierDto.VendorUpsertRequest request) {
+        return ApiResponse.success(apiSpecService.updateVendor(id, request));
     }
 
-    @PostMapping("/equipments")
-    /**
-     * 接口说明：新增接口，方法名为 createEquipment。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<EquipmentInfo> createEquipment(@RequestBody EquipmentInfo equipmentInfo) {
-        return ApiResponse.success("创建成功", ecgBusinessService.createEquipment(equipmentInfo));
+    @DeleteMapping("/vendors/{id}")
+    public ApiResponse<CommonVo.OperationResult> deleteVendor(@PathVariable @Positive(message = "id必须为正数") Long id) {
+        return ApiResponse.success(apiSpecService.deleteVendor(id));
     }
 
-    @PutMapping("/equipments/{id}")
-    /**
-     * 接口说明：修改接口，方法名为 updateEquipment。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> updateEquipment(@PathVariable Integer id, @RequestBody EquipmentInfo equipmentInfo) {
-        return ApiResponse.success(ecgBusinessService.updateEquipment(id, equipmentInfo));
+    @GetMapping("/vendors/qualifications")
+    public ApiResponse<List<SupplierVo.VendorQualificationItem>> vendorQualifications() {
+        return ApiResponse.success(apiSpecService.listVendorQualifications());
     }
 
-    @DeleteMapping("/equipments/{id}")
-    /**
-     * 接口说明：删除接口，方法名为 deleteEquipment。
-     * 处理流程：接收请求参数，调用服务层并统一封装 ApiResponse 返回。
-     * 返回规范：code=0 表示成功，非0表示失败。
-     */
-    public ApiResponse<Boolean> deleteEquipment(@PathVariable Integer id) {
-        return ApiResponse.success(ecgBusinessService.deleteEquipment(id));
+    @GetMapping("/vendors/device-ledger")
+    public ApiResponse<List<SupplierVo.VendorDeviceLedgerItem>> vendorDeviceLedger() {
+        return ApiResponse.success(apiSpecService.listVendorDeviceLedger());
+    }
+
+    @GetMapping("/devices/basic-ledger")
+    public ApiResponse<List<SupplierVo.DeviceBasicLedgerItem>> deviceBasicLedger() {
+        return ApiResponse.success(apiSpecService.listDeviceBasicLedger());
+    }
+
+    @GetMapping("/devices/binding")
+    public ApiResponse<List<SupplierVo.DeviceBindingItem>> deviceBinding() {
+        return ApiResponse.success(apiSpecService.listDeviceBinding());
+    }
+
+    @GetMapping("/devices/maintenance")
+    public ApiResponse<List<SupplierVo.DeviceMaintenanceItem>> deviceMaintenance() {
+        return ApiResponse.success(apiSpecService.listDeviceMaintenance());
+    }
+
+    @GetMapping("/devices/status")
+    public ApiResponse<List<SupplierVo.DeviceStatusItem>> deviceStatus() {
+        return ApiResponse.success(apiSpecService.listDeviceStatus());
+    }
+
+    @GetMapping("/consumables/info")
+    public ApiResponse<List<SupplierVo.ConsumableInfoItem>> consumableInfo() {
+        return ApiResponse.success(apiSpecService.listConsumableInfo());
+    }
+
+    @GetMapping("/consumables/inventory")
+    public ApiResponse<List<SupplierVo.ConsumableInventoryItem>> consumableInventory() {
+        return ApiResponse.success(apiSpecService.listConsumableInventory());
+    }
+
+    @GetMapping("/consumables/traceability")
+    public ApiResponse<List<SupplierVo.ConsumableTraceabilityItem>> consumableTraceability() {
+        return ApiResponse.success(apiSpecService.listConsumableTraceability());
+    }
+
+    @GetMapping("/procurement/order")
+    public ApiResponse<List<SupplierVo.ProcurementOrderItem>> procurementOrder() {
+        return ApiResponse.success(apiSpecService.listProcurementOrder());
+    }
+
+    @GetMapping("/procurement/acceptance")
+    public ApiResponse<List<SupplierVo.ProcurementAcceptanceItem>> procurementAcceptance() {
+        return ApiResponse.success(apiSpecService.listProcurementAcceptance());
+    }
+
+    @GetMapping("/procurement/statistics")
+    public ApiResponse<List<SupplierVo.ProcurementStatisticsItem>> procurementStatistics() {
+        return ApiResponse.success(apiSpecService.listProcurementStatistics());
     }
 }

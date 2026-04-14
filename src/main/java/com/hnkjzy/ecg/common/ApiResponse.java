@@ -14,6 +14,10 @@ public class ApiResponse<T> {
      */
     private int code;
     /**
+     * 字段说明：请求是否成功，字段名为 success。
+     */
+    private boolean success;
+    /**
      * 字段说明：年龄信息，字段名为 message。
      */
     private String message;
@@ -25,10 +29,15 @@ public class ApiResponse<T> {
     public ApiResponse() {
     }
 
-    public ApiResponse(int code, String message, T data) {
+    public ApiResponse(int code, boolean success, String message, T data) {
         this.code = code;
+        this.success = success;
         this.message = message;
         this.data = data;
+    }
+
+    public ApiResponse(int code, String message, T data) {
+        this(code, code == 200, message, data);
     }
 
     /**
@@ -37,7 +46,7 @@ public class ApiResponse<T> {
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(0, "success", data);
+        return new ApiResponse<>(200, true, "OK", data);
     }
 
     /**
@@ -46,7 +55,8 @@ public class ApiResponse<T> {
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
     public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(0, message, data);
+        String safeMessage = message == null || message.isBlank() ? "OK" : message;
+        return new ApiResponse<>(200, true, safeMessage, data);
     }
 
     /**
@@ -55,7 +65,18 @@ public class ApiResponse<T> {
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
     public static <T> ApiResponse<T> fail(String message) {
-        return new ApiResponse<>(1, message, null);
+        return new ApiResponse<>(400, false, message, null);
+    }
+
+    /**
+     * 方法说明：业务处理业务方法，方法名为 fail。
+     * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
+     * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
+     */
+    public static <T> ApiResponse<T> fail(int code, String message) {
+        int safeCode = code <= 0 ? 500 : code;
+        String safeMessage = message == null || message.isBlank() ? "ERROR" : message;
+        return new ApiResponse<>(safeCode, false, safeMessage, null);
     }
 
     /**
@@ -74,6 +95,24 @@ public class ApiResponse<T> {
      */
     public void setCode(int code) {
         this.code = code;
+    }
+
+    /**
+     * 方法说明：查询业务方法，方法名为 isSuccess。
+     * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
+     * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
+     */
+    public boolean isSuccess() {
+        return success;
+    }
+
+    /**
+     * 方法说明：业务处理业务方法，方法名为 setSuccess。
+     * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
+     * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
+     */
+    public void setSuccess(boolean success) {
+        this.success = success;
     }
 
     /**

@@ -7,6 +7,7 @@ package com.hnkjzy.ecg.common;
  */
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.List;
 
 /**
@@ -21,26 +22,26 @@ public class PageResult<T> {
      */
     private long total;
     /**
-     * 字段说明：年龄信息，字段名为 page。
+        * 字段说明：页码，字段名为 pageNum。
      */
-    private int page;
+        private int pageNum;
     /**
-     * 字段说明：业务字段，字段名为 size。
+        * 字段说明：页大小，字段名为 pageSize。
      */
-    private int size;
+        private int pageSize;
     /**
-     * 字段说明：业务字段，字段名为 records。
+        * 字段说明：分页列表，字段名为 list。
      */
-    private List<T> records;
+        private List<T> list;
 
     public PageResult() {
     }
 
-    public PageResult(long total, int page, int size, List<T> records) {
+    public PageResult(long total, int pageNum, int pageSize, List<T> list) {
         this.total = total;
-        this.page = page;
-        this.size = size;
-        this.records = records;
+        this.pageNum = pageNum;
+        this.pageSize = pageSize;
+        this.list = list;
     }
 
     /**
@@ -66,8 +67,8 @@ public class PageResult<T> {
      * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
-    public int getPage() {
-        return page;
+    public int getPageNum() {
+        return pageNum;
     }
 
     /**
@@ -75,8 +76,8 @@ public class PageResult<T> {
      * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
-    public void setPage(int page) {
-        this.page = page;
+    public void setPageNum(int pageNum) {
+        this.pageNum = pageNum;
     }
 
     /**
@@ -84,8 +85,8 @@ public class PageResult<T> {
      * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
-    public int getSize() {
-        return size;
+    public int getPageSize() {
+        return pageSize;
     }
 
     /**
@@ -93,8 +94,8 @@ public class PageResult<T> {
      * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
-    public void setSize(int size) {
-        this.size = size;
+    public void setPageSize(int pageSize) {
+        this.pageSize = pageSize;
     }
 
     /**
@@ -102,8 +103,8 @@ public class PageResult<T> {
      * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
-    public List<T> getRecords() {
-        return records;
+    public List<T> getList() {
+        return list;
     }
 
     /**
@@ -111,7 +112,34 @@ public class PageResult<T> {
      * 处理流程：执行参数校验、业务逻辑处理并返回稳定结果。
      * 注意事项：保持事务边界清晰，避免出现脏数据与状态不一致。
      */
+    public void setList(List<T> list) {
+        this.list = list;
+    }
+
+    @JsonIgnore
+    public int getPage() {
+        return pageNum;
+    }
+
+    public void setPage(int page) {
+        this.pageNum = page;
+    }
+
+    @JsonIgnore
+    public int getSize() {
+        return pageSize;
+    }
+
+    public void setSize(int size) {
+        this.pageSize = size;
+    }
+
+    @JsonIgnore
+    public List<T> getRecords() {
+        return list;
+    }
+
     public void setRecords(List<T> records) {
-        this.records = records;
+        this.list = records;
     }
 }
