@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: ecg_intelligence
+  profiles:
+    active: dev
