@@ -43,7 +43,14 @@ public interface ApiSpecMapper {
         LEFT JOIN sys_dict_warning_type dict ON dict.type_name = w.warning_type OR dict.type_code = w.warning_type
         <where>
             <if test='status != null and status != "" and status != "ALL"'>
-                AND (w.warning_level = #{status} OR w.warning_status = #{status})
+                AND (
+                    (#{status} = '危急' AND IFNULL(w.warning_level, '') IN ('危急', '紧急', '重度'))
+                    OR (#{status} = '异常' AND IFNULL(w.warning_level, '') NOT IN ('', '正常'))
+                    OR (#{status} IN ('1', '纳入') AND IFNULL(w.warning_status, '0') IN ('1', '已纳入'))
+                    OR (#{status} IN ('0', '不纳入') AND IFNULL(w.warning_status, '0') NOT IN ('1', '已纳入'))
+                    OR (#{status} NOT IN ('危急', '异常', '1', '0', '纳入', '不纳入')
+                        AND (w.warning_level = #{status} OR w.warning_status = #{status}))
+                )
             </if>
             <if test='wardId != null'>
                 AND p.ward_id = #{wardId}
@@ -87,7 +94,14 @@ public interface ApiSpecMapper {
         LEFT JOIN sys_dict_warning_type dict ON dict.type_name = w.warning_type OR dict.type_code = w.warning_type
         <where>
             <if test='status != null and status != "" and status != "ALL"'>
-                AND (w.warning_level = #{status} OR w.warning_status = #{status})
+                AND (
+                    (#{status} = '危急' AND IFNULL(w.warning_level, '') IN ('危急', '紧急', '重度'))
+                    OR (#{status} = '异常' AND IFNULL(w.warning_level, '') NOT IN ('', '正常'))
+                    OR (#{status} IN ('1', '纳入') AND IFNULL(w.warning_status, '0') IN ('1', '已纳入'))
+                    OR (#{status} IN ('0', '不纳入') AND IFNULL(w.warning_status, '0') NOT IN ('1', '已纳入'))
+                    OR (#{status} NOT IN ('危急', '异常', '1', '0', '纳入', '不纳入')
+                        AND (w.warning_level = #{status} OR w.warning_status = #{status}))
+                )
             </if>
             <if test='wardId != null'>
                 AND p.ward_id = #{wardId}
@@ -131,6 +145,64 @@ public interface ApiSpecMapper {
                             @Param("reason") String reason,
                             @Param("warningStatus") String warningStatus);
 
+    @Update("""
+        UPDATE sys_ecg_abnormal_warning
+        SET warning_status = #{managedStatus},
+            handle_doctor_id = COALESCE(#{operatorId}, handle_doctor_id),
+            handle_result = CASE
+                WHEN #{reason} IS NULL OR #{reason} = '' THEN handle_result
+                ELSE #{reason}
+            END,
+            handle_time = NOW()
+        WHERE warning_id = (
+            SELECT t.warning_id
+            FROM (
+                SELECT w.warning_id
+                FROM sys_ecg_abnormal_warning w
+                JOIN sys_ecg_patient_info p ON p.patient_id = w.patient_id
+                WHERE p.inpatient_no = #{patientId}
+                   OR CAST(p.patient_id AS CHAR) = #{patientId}
+                ORDER BY w.warning_time DESC, w.warning_id DESC
+                LIMIT 1
+            ) t
+        )
+        """)
+    int updateLatestPatientManageStatus(@Param("patientId") String patientId,
+                                        @Param("managedStatus") String managedStatus,
+                                        @Param("operatorId") Long operatorId,
+                                        @Param("reason") String reason);
+
+    @Delete("""
+        DELETE FROM sys_ecg_abnormal_warning
+        WHERE warning_id = (
+            SELECT t.warning_id
+            FROM (
+                SELECT w.warning_id
+                FROM sys_ecg_abnormal_warning w
+                JOIN sys_ecg_patient_info p ON p.patient_id = w.patient_id
+                WHERE (p.inpatient_no = #{patientId} OR CAST(p.patient_id AS CHAR) = #{patientId})
+                  AND IFNULL(w.warning_status, '0') IN ('0', '未纳入')
+                ORDER BY w.warning_time DESC, w.warning_id DESC
+                LIMIT 1
+            ) t
+        )
+        """)
+    int deleteLatestUnmanagedWarning(@Param("patientId") String patientId);
+
+    @Select("""
+        SELECT CASE
+            WHEN IFNULL(w.warning_status, '0') IN ('1', '已纳入') THEN 1
+            ELSE 0
+        END
+        FROM sys_ecg_abnormal_warning w
+        JOIN sys_ecg_patient_info p ON p.patient_id = w.patient_id
+        WHERE p.inpatient_no = #{patientId}
+           OR CAST(p.patient_id AS CHAR) = #{patientId}
+        ORDER BY w.warning_time DESC, w.warning_id DESC
+        LIMIT 1
+        """)
+    Integer selectLatestPatientManagedFlag(@Param("patientId") String patientId);
+
     @Select("""
         <script>
         SELECT
@@ -144,8 +216,8 @@ public interface ApiSpecMapper {
             ROUND(IFNULL(ci.max_rr_interval, 0) * 1000, 1) AS qt,
             ROUND(IFNULL(ci.hrv_sdnn, 0), 1) AS qrs,
             CASE
-                WHEN IFNULL(w.warning_status, '') IN ('未处理', '处理中')
-                     OR IFNULL(w.warning_level, '') IN ('重度', '紧急', '危急') THEN 'abnormal'
+                 WHEN w.warning_id IS NOT NULL
+                     AND IFNULL(w.warning_level, '') NOT IN ('', '正常') THEN 'abnormal'
                 ELSE 'stable'
             END AS status,
             IFNULL(ai.ai_diagnosis, '暂无AI结论') AS `desc`
@@ -183,15 +255,29 @@ public interface ApiSpecMapper {
                 <if test='scope.equals("measurement")'>
                     AND m.measure_id IS NOT NULL
                 </if>
+                <if test='scope.equals("managed")'>
+                    AND IFNULL(w.warning_status, '0') IN ('1', '已纳入')
+                    AND p.bed_no IS NOT NULL
+                    AND p.bed_no != ''
+                </if>
+                <if test='scope.equals("unmanaged")'>
+                    AND w.warning_id IS NOT NULL
+                    AND IFNULL(w.warning_status, '0') IN ('0', '未纳入')
+                    AND p.bed_no IS NOT NULL
+                    AND p.bed_no != ''
+                </if>
+                <if test='scope.equals("abnormal")'>
+                    AND w.warning_id IS NOT NULL
+                    AND IFNULL(w.warning_level, '') NOT IN ('', '正常')
+                </if>
             </if>
             <if test='status != null and status != ""'>
                 <if test='status.equals("abnormal")'>
-                    AND (IFNULL(w.warning_status, '') IN ('未处理', '处理中')
-                         OR IFNULL(w.warning_level, '') IN ('重度', '紧急', '危急'))
+                    AND w.warning_id IS NOT NULL
+                    AND IFNULL(w.warning_level, '') NOT IN ('', '正常')
                 </if>
                 <if test='status.equals("stable")'>
-                    AND (IFNULL(w.warning_status, '') NOT IN ('未处理', '处理中')
-                         AND IFNULL(w.warning_level, '') NOT IN ('重度', '紧急', '危急'))
+                    AND (w.warning_id IS NULL OR IFNULL(w.warning_level, '') IN ('', '正常'))
                 </if>
             </if>
         </where>
@@ -242,15 +328,29 @@ public interface ApiSpecMapper {
                 <if test='scope.equals("measurement")'>
                     AND m.measure_id IS NOT NULL
                 </if>
+                <if test='scope.equals("managed")'>
+                    AND IFNULL(w.warning_status, '0') IN ('1', '已纳入')
+                    AND p.bed_no IS NOT NULL
+                    AND p.bed_no != ''
+                </if>
+                <if test='scope.equals("unmanaged")'>
+                    AND w.warning_id IS NOT NULL
+                    AND IFNULL(w.warning_status, '0') IN ('0', '未纳入')
+                    AND p.bed_no IS NOT NULL
+                    AND p.bed_no != ''
+                </if>
+                <if test='scope.equals("abnormal")'>
+                    AND w.warning_id IS NOT NULL
+                    AND IFNULL(w.warning_level, '') NOT IN ('', '正常')
+                </if>
             </if>
             <if test='status != null and status != ""'>
                 <if test='status.equals("abnormal")'>
-                    AND (IFNULL(w.warning_status, '') IN ('未处理', '处理中')
-                         OR IFNULL(w.warning_level, '') IN ('重度', '紧急', '危急'))
+                    AND w.warning_id IS NOT NULL
+                    AND IFNULL(w.warning_level, '') NOT IN ('', '正常')
                 </if>
                 <if test='status.equals("stable")'>
-                    AND (IFNULL(w.warning_status, '') NOT IN ('未处理', '处理中')
-                         AND IFNULL(w.warning_level, '') NOT IN ('重度', '紧急', '危急'))
+                    AND (w.warning_id IS NULL OR IFNULL(w.warning_level, '') IN ('', '正常'))
                 </if>
             </if>
         </where>
@@ -303,8 +403,8 @@ public interface ApiSpecMapper {
             DATE_FORMAT(p.inpatient_date, '%Y-%m-%d') AS admission_date,
             p.inpatient_diagnosis AS diagnosis,
             CASE
-                WHEN IFNULL(w.warning_status, '') IN ('未处理', '处理中', '已处理') THEN '已纳入'
-                ELSE '未纳入'
+                WHEN IFNULL(w.warning_status, '0') IN ('1', '已纳入') THEN '1'
+                ELSE '0'
             END AS group_status,
             CASE
                 WHEN p.bed_no IS NULL OR p.bed_no = '' THEN '离院'
@@ -335,10 +435,16 @@ public interface ApiSpecMapper {
             <if test='groupStatus != null and groupStatus != ""'>
                 AND (
                     CASE
-                        WHEN IFNULL(w.warning_status, '') IN ('未处理', '处理中', '已处理') THEN '已纳入'
-                        ELSE '未纳入'
+                        WHEN IFNULL(w.warning_status, '0') IN ('1', '已纳入') THEN '1'
+                        ELSE '0'
                     END
-                ) = #{groupStatus}
+                ) = (
+                    CASE
+                        WHEN #{groupStatus} IN ('1', '已纳入') THEN '1'
+                        WHEN #{groupStatus} IN ('0', '未纳入') THEN '0'
+                        ELSE #{groupStatus}
+                    END
+                )
             </if>
             <if test='hospitalStatus != null and hospitalStatus != ""'>
                 AND (
@@ -400,10 +506,16 @@ public interface ApiSpecMapper {
             <if test='groupStatus != null and groupStatus != ""'>
                 AND (
                     CASE
-                        WHEN IFNULL(w.warning_status, '') IN ('未处理', '处理中', '已处理') THEN '已纳入'
-                        ELSE '未纳入'
+                        WHEN IFNULL(w.warning_status, '0') IN ('1', '已纳入') THEN '1'
+                        ELSE '0'
                     END
-                ) = #{groupStatus}
+                ) = (
+                    CASE
+                        WHEN #{groupStatus} IN ('1', '已纳入') THEN '1'
+                        WHEN #{groupStatus} IN ('0', '未纳入') THEN '0'
+                        ELSE #{groupStatus}
+                    END
+                )
             </if>
             <if test='hospitalStatus != null and hospitalStatus != ""'>
                 AND (
@@ -452,12 +564,12 @@ public interface ApiSpecMapper {
                 ORDER BY d.doctor_id
                 LIMIT 1
             ) AS nurse,
-            4 AS total_beds,
+            2 AS total_beds,
             t.occupied_beds
         FROM (
             SELECT
                 p.ward_id,
-                CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) AS UNSIGNED) AS room_id,
+                                CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) * 100 + 1 AS UNSIGNED) AS room_id,
                 COUNT(*) AS occupied_beds
             FROM sys_ecg_patient_info p
             WHERE p.bed_no IS NOT NULL
@@ -466,7 +578,7 @@ public interface ApiSpecMapper {
               <if test='wardId != null'>
                 AND p.ward_id = #{wardId}
               </if>
-            GROUP BY p.ward_id, CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) AS UNSIGNED)
+                        GROUP BY p.ward_id, CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) * 100 + 1 AS UNSIGNED)
         ) t
         ORDER BY t.room_id
         </script>
@@ -481,9 +593,9 @@ public interface ApiSpecMapper {
             CONCAT(DATEDIFF(CURDATE(), p.inpatient_date), '天') AS day,
             IFNULL(w.warning_content, '监测中') AS `condition`,
             CASE
-                WHEN IFNULL(w.warning_status, '') IN ('未处理', '处理中') THEN '监护中'
-                WHEN IFNULL(w.warning_status, '') = '已处理' THEN '稳定'
-                ELSE '观察中'
+                WHEN w.warning_id IS NULL THEN '观察中'
+                WHEN IFNULL(w.warning_level, '') IN ('', '正常') THEN '稳定'
+                ELSE '监护中'
             END AS status,
             IFNULL(f.follow_advice, '常规治疗') AS medication,
             DATEDIFF(CURDATE(), p.inpatient_date) AS hospital_days,
@@ -511,7 +623,7 @@ public interface ApiSpecMapper {
             LIMIT 1
         )
         WHERE p.bed_no REGEXP '^[0-9]+$'
-          AND CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) AS UNSIGNED) = #{roomId}
+                    AND CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) * 100 + 1 AS UNSIGNED) = #{roomId}
         ORDER BY CAST(p.bed_no AS UNSIGNED)
         """)
     List<BloodGlucoseVo.RoomPatientItem> listRoomPatients(@Param("roomId") Long roomId);
@@ -522,6 +634,14 @@ public interface ApiSpecMapper {
         WHERE inpatient_no = #{patientId} OR CAST(patient_id AS CHAR) = #{patientId}
         """)
     int assignBed(@Param("patientId") String patientId, @Param("bedNo") String bedNo);
+
+        @Select("""
+                SELECT COUNT(*)
+                FROM sys_ecg_patient_info
+                WHERE bed_no = #{bedNo}
+                    AND NOT (inpatient_no = #{patientId} OR CAST(patient_id AS CHAR) = #{patientId})
+                """)
+        int countBedOccupiedByOthers(@Param("patientId") String patientId, @Param("bedNo") String bedNo);
 
     @Select("""
         SELECT
@@ -550,7 +670,7 @@ public interface ApiSpecMapper {
                 SELECT COUNT(*)
                 FROM sys_ecg_abnormal_warning ww
                 WHERE ww.patient_id = p.patient_id
-                  AND ww.warning_status IN ('未处理', '处理中')
+                AND IFNULL(ww.warning_level, '') NOT IN ('', '正常')
             ) AS abn_times,
             CAST(IFNULL(ci.max_heart_rate, 0) AS SIGNED) AS max_hr,
             (
@@ -579,7 +699,7 @@ public interface ApiSpecMapper {
                     SELECT 1
                     FROM sys_ecg_abnormal_warning ww
                     WHERE ww.patient_id = p.patient_id
-                      AND ww.warning_status IN ('未处理', '处理中')
+                      AND IFNULL(ww.warning_level, '') NOT IN ('', '正常')
                 )
             </if>
             <if test='tab != null and tab.equals("normal")'>
@@ -587,7 +707,7 @@ public interface ApiSpecMapper {
                     SELECT 1
                     FROM sys_ecg_abnormal_warning ww
                     WHERE ww.patient_id = p.patient_id
-                      AND ww.warning_status IN ('未处理', '处理中')
+                      AND IFNULL(ww.warning_level, '') NOT IN ('', '正常')
                 )
             </if>
         </where>
@@ -614,7 +734,7 @@ public interface ApiSpecMapper {
                     SELECT 1
                     FROM sys_ecg_abnormal_warning ww
                     WHERE ww.patient_id = p.patient_id
-                      AND ww.warning_status IN ('未处理', '处理中')
+                      AND IFNULL(ww.warning_level, '') NOT IN ('', '正常')
                 )
             </if>
             <if test='tab != null and tab.equals("normal")'>
@@ -622,7 +742,7 @@ public interface ApiSpecMapper {
                     SELECT 1
                     FROM sys_ecg_abnormal_warning ww
                     WHERE ww.patient_id = p.patient_id
-                      AND ww.warning_status IN ('未处理', '处理中')
+                      AND IFNULL(ww.warning_level, '') NOT IN ('', '正常')
                 )
             </if>
         </where>
@@ -699,12 +819,12 @@ public interface ApiSpecMapper {
     List<AnalysisVo.NamedValue> listWarningWardTop();
 
     @Select("""
-        SELECT '已纳入' AS label,
-               SUM(CASE WHEN warning_status IN ('已处理', '处理中') THEN 1 ELSE 0 END) AS value
+         SELECT '已纳入' AS label,
+             SUM(CASE WHEN IFNULL(warning_status, '0') IN ('1', '已纳入') THEN 1 ELSE 0 END) AS value
         FROM sys_ecg_abnormal_warning
         UNION ALL
-        SELECT '待处理' AS label,
-               SUM(CASE WHEN warning_status IN ('未处理') THEN 1 ELSE 0 END) AS value
+         SELECT '待纳入' AS label,
+             SUM(CASE WHEN IFNULL(warning_status, '0') IN ('1', '已纳入') THEN 0 ELSE 1 END) AS value
         FROM sys_ecg_abnormal_warning
         """)
     List<AnalysisVo.NamedValue> listManagedOverview();

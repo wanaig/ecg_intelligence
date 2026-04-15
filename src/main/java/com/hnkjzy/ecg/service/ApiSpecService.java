@@ -54,6 +54,14 @@ public interface ApiSpecService {
                                                                     Integer pageNum,
                                                                     Integer pageSize);
 
+    CommonVo.OperationResult includePatient(String patientId, BloodGlucoseDto.PatientManageActionRequest request);
+
+    CommonVo.OperationResult excludePatient(String patientId, BloodGlucoseDto.PatientManageActionRequest request);
+
+    CommonVo.OperationResult deleteUnmanagedPatient(String patientId);
+
+    CommonVo.OperationResult includeManagedPatientToDischarged(String patientId);
+
     BloodGlucoseVo.WaveformData getWaveform(String patientId, Long measureId, Integer durationSec);
 
     PageResult<BloodGlucoseVo.PatientListItem> pagePatients(String ward,

@@ -125,6 +125,124 @@ public class BloodGlucoseController {
         ));
     }
 
+    @GetMapping("/patients/managed")
+    public ApiResponse<PageResult<BloodGlucoseVo.PatientMetricItem>> managedPatients(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+            @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        return ApiResponse.success(apiSpecService.pagePatientMetrics(
+                "managed",
+                name,
+                status,
+                startDate,
+                endDate,
+                pageNum,
+                pageSize
+        ));
+    }
+
+    @GetMapping("/patients/unmanaged")
+    public ApiResponse<PageResult<BloodGlucoseVo.PatientMetricItem>> unmanagedPatients(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+            @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        return ApiResponse.success(apiSpecService.pagePatientMetrics(
+                "unmanaged",
+                name,
+                status,
+                startDate,
+                endDate,
+                pageNum,
+                pageSize
+        ));
+    }
+
+    @GetMapping("/patients/measurement")
+    public ApiResponse<PageResult<BloodGlucoseVo.PatientMetricItem>> measurementPatients(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+            @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        return ApiResponse.success(apiSpecService.pagePatientMetrics(
+                "measurement",
+                name,
+                status,
+                startDate,
+                endDate,
+                pageNum,
+                pageSize
+        ));
+    }
+
+    @GetMapping("/patients/abnormal")
+    public ApiResponse<PageResult<BloodGlucoseVo.PatientMetricItem>> abnormalPatients(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+            @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        String statusFilter = (status == null || status.isBlank()) ? "abnormal" : status;
+        return ApiResponse.success(apiSpecService.pagePatientMetrics(
+                "abnormal",
+                name,
+                statusFilter,
+                startDate,
+                endDate,
+                pageNum,
+                pageSize
+        ));
+    }
+
+    @GetMapping("/patients/discharged")
+    public ApiResponse<PageResult<BloodGlucoseVo.PatientMetricItem>> dischargedPatients(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
+            @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        return ApiResponse.success(apiSpecService.pagePatientMetrics(
+                "discharged",
+                name,
+                status,
+                startDate,
+                endDate,
+                pageNum,
+                pageSize
+        ));
+    }
+
+    @PostMapping("/patients/{patientId}/include")
+    public ApiResponse<CommonVo.OperationResult> includePatient(@PathVariable @NotBlank(message = "patientId不能为空") String patientId,
+                                                                @RequestBody(required = false) BloodGlucoseDto.PatientManageActionRequest request) {
+        return ApiResponse.success(apiSpecService.includePatient(patientId, request));
+    }
+
+    @PostMapping("/patients/{patientId}/exclude")
+    public ApiResponse<CommonVo.OperationResult> excludePatient(@PathVariable @NotBlank(message = "patientId不能为空") String patientId,
+                                                                @RequestBody(required = false) BloodGlucoseDto.PatientManageActionRequest request) {
+        return ApiResponse.success(apiSpecService.excludePatient(patientId, request));
+    }
+
+    @PostMapping("/patients/{patientId}/unmanaged/delete")
+    public ApiResponse<CommonVo.OperationResult> deleteUnmanagedPatient(@PathVariable @NotBlank(message = "patientId不能为空") String patientId) {
+        return ApiResponse.success(apiSpecService.deleteUnmanagedPatient(patientId));
+    }
+
+    @PostMapping("/patients/{patientId}/managed/include")
+    public ApiResponse<CommonVo.OperationResult> includeManagedPatientToDischarged(@PathVariable @NotBlank(message = "patientId不能为空") String patientId) {
+        return ApiResponse.success(apiSpecService.includeManagedPatientToDischarged(patientId));
+    }
+
     @GetMapping("/patients/{patientId}/waveform")
     public ApiResponse<BloodGlucoseVo.WaveformData> waveform(
             @PathVariable @NotBlank(message = "patientId不能为空") String patientId,

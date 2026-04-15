@@ -46,4 +46,13 @@ public class BloodGlucoseDto {
         @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}( \\d{2}:\\d{2}:\\d{2})?$", message = "assignTime格式应为YYYY-MM-DD或YYYY-MM-DD HH:mm:ss")
         private String assignTime;
     }
+
+    @Data
+    public static class PatientManageActionRequest {
+        @Size(max = 200, message = "reason长度不能超过200")
+        private String reason;
+
+        @Positive(message = "operatorId必须为正数")
+        private Long operatorId;
+    }
 }

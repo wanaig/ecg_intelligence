@@ -32,7 +32,7 @@ public interface AnalysisMapper {
         SELECT
             (SELECT COUNT(*) FROM sys_ecg_patient_info) AS total_patients,
             (SELECT COUNT(*) FROM sys_ecg_abnormal_warning) AS total_warnings,
-            (SELECT COUNT(*) FROM sys_ecg_abnormal_warning WHERE warning_status IN ('未处理', '处理中')) AS unhandled_warnings,
+            (SELECT COUNT(*) FROM sys_ecg_abnormal_warning WHERE IFNULL(warning_status, '0') IN ('1', '已纳入', '未处理', '处理中')) AS unhandled_warnings,
             (SELECT COUNT(*) FROM sys_ecg_report WHERE report_status IN ('待审核', '草稿')) AS pending_reports,
             (SELECT COUNT(*) FROM sys_ecg_equipment_info) AS total_devices,
             (SELECT COUNT(*) FROM sys_ecg_ward_info) AS total_wards
@@ -131,7 +131,7 @@ public interface AnalysisMapper {
               ORDER BY ww.warning_time DESC, ww.warning_id DESC
               LIMIT 1
           )
-                WHERE w.warning_status IN ('未处理', '处理中')
+                WHERE IFNULL(w.warning_status, '0') IN ('0', '未纳入', '未处理', '处理中', '已撤销', '正常')
         ORDER BY w.warning_time DESC
         """)
     /**
@@ -161,7 +161,7 @@ public interface AnalysisMapper {
               ORDER BY ww.warning_time DESC, ww.warning_id DESC
               LIMIT 1
           )
-                WHERE w.warning_id IS NULL OR w.warning_status IN ('已处理', '已撤销', '正常')
+                WHERE w.warning_id IS NOT NULL AND IFNULL(w.warning_status, '0') IN ('1', '已纳入', '已处理')
         ORDER BY p.patient_id DESC
         """)
     /**

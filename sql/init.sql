@@ -1,4 +1,4 @@
--- 创建数据库
+﻿-- 创建数据库
 CREATE DATABASE IF NOT EXISTS ecg_intelligence_platform DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE ecg_intelligence_platform;
 
@@ -132,7 +132,7 @@ CREATE TABLE sys_ecg_abnormal_warning (
   handle_doctor_id INT(11) DEFAULT NULL COMMENT '处理医生ID',
   handle_time DATETIME DEFAULT NULL COMMENT '处理时间',
   handle_result TEXT DEFAULT NULL COMMENT '处理结果',
-  warning_status VARCHAR(20) DEFAULT '未处理' COMMENT '预警状态',
+  warning_status VARCHAR(20) DEFAULT '0' COMMENT '纳入状态 1纳入 0不纳入',
   PRIMARY KEY (warning_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='心电图异常预警表';
 
@@ -370,18 +370,18 @@ INSERT INTO sys_ecg_ai_analysis (measure_id, model_version, ai_diagnosis, confid
 (17,'V2.0','心房颤动，慢心室率',96.40),(18,'V2.0','窦性心律，大致正常',97.50),
 (19,'V2.0','窦性心律，偶发房早',94.10),(20,'V2.0','窦性心律，大致正常',93.70);
 
--- 8. 心电图异常预警表 20条
-INSERT INTO sys_ecg_abnormal_warning (measure_id, patient_id, warning_type, warning_level, warning_content) VALUES
-(1,1,'房早','轻度','偶发房早，无需处理'),(2,2,'室早','轻度','偶发室早，建议观察'),
-(3,3,'心动过速','中度','心率过快，持续监测'),(4,4,'心动过缓','中度','心率过慢，关注'),
-(5,5,'房颤','重度','心房颤动，紧急处理'),(6,6,'ST改变','中度','心肌缺血可能'),
-(7,7,'心律正常','正常','无异常'),(8,8,'室早','轻度','偶发室早'),
-(9,9,'心动过速','中度','心率超标'),(10,10,'心律正常','正常','无异常'),
-(11,11,'房早','轻度','偶发房早'),(12,12,'心动过缓','中度','心率偏低'),
-(13,13,'ST改变','中度','缺血提示'),(14,14,'心律正常','正常','无异常'),
-(15,15,'室早','轻度','单发室早'),(16,16,'心动过速','中度','心率偏快'),
-(17,17,'房颤','重度','房颤发作'),(18,18,'心律正常','正常','无异常'),
-(19,19,'房早','轻度','偶发房早'),(20,20,'心律正常','正常','无异常');
+-- 8. 心电图异常预警表 20条（warning_status: 1=纳入, 0=不纳入）
+INSERT INTO sys_ecg_abnormal_warning (measure_id, patient_id, warning_type, warning_level, warning_content, warning_status) VALUES
+(1,1,'房早','轻度','偶发房早，无需处理','0'),(2,2,'室早','轻度','偶发室早，建议观察','0'),
+(3,3,'心动过速','中度','心率过快，持续监测','1'),(4,4,'心动过缓','中度','心率过慢，关注','0'),
+(5,5,'房颤','重度','心房颤动，紧急处理','1'),(6,6,'ST改变','中度','心肌缺血可能','1'),
+(7,7,'心律正常','正常','无异常','0'),(8,8,'室早','轻度','偶发室早','0'),
+(9,9,'心动过速','中度','心率超标','1'),(10,10,'心律正常','正常','无异常','0'),
+(11,11,'房早','轻度','偶发房早','0'),(12,12,'心动过缓','中度','心率偏低','0'),
+(13,13,'ST改变','中度','缺血提示','1'),(14,14,'心律正常','正常','无异常','0'),
+(15,15,'室早','轻度','单发室早','0'),(16,16,'心动过速','中度','心率偏快','1'),
+(17,17,'房颤','重度','房颤发作','1'),(18,18,'心律正常','正常','无异常','0'),
+(19,19,'房早','轻度','偶发房早','0'),(20,20,'心律正常','正常','无异常','0');
 
 -- 9. 心电图报告表 20条
 INSERT INTO sys_ecg_report (measure_id, ai_analysis_id, patient_id, report_no, diagnosis_result, create_doctor_id, report_status) VALUES

@@ -69,6 +69,11 @@
 - 409：业务冲突
 - 500：服务端异常
 
+## 2.7 纳入状态约定
+- 1：纳入（在管）
+- 0：不纳入（待管）
+- 兼容历史值：已纳入/未纳入（查询时统一映射为 1/0）
+
 ---
 
 ## 3. 数据库映射设计
@@ -104,6 +109,16 @@
 ---
 
 ## 4. 血糖管理 API
+
+## 4.0 二级标题下接口清单（按 src/views 页面）
+- bloodGlucoseManagement/warningList/index.vue：GET /blood-glucose/bed-view/departments，GET /blood-glucose/dict/indexes，GET /blood-glucose/warnings，POST /blood-glucose/warnings/{warningId}/include，POST /blood-glucose/warnings/{warningId}/exclude，GET /blood-glucose/warnings/export
+- bloodGlucoseManagement/measurement/index.vue：GET /blood-glucose/patients/measurement（或 GET /blood-glucose/patients/metrics?scope=measurement），GET /blood-glucose/patients/{patientId}/waveform
+- bloodGlucoseManagement/managed/index.vue：GET /blood-glucose/patients/managed（或 GET /blood-glucose/patients/metrics?scope=managed），POST /blood-glucose/patients/{patientId}/managed/include，POST /blood-glucose/patients/{patientId}/exclude，GET /blood-glucose/patients/{patientId}/waveform
+- bloodGlucoseManagement/unmanaged/index.vue：GET /blood-glucose/patients/unmanaged（或 GET /blood-glucose/patients/metrics?scope=unmanaged），POST /blood-glucose/patients/{patientId}/include，POST /blood-glucose/patients/{patientId}/unmanaged/delete，GET /blood-glucose/patients/{patientId}/waveform
+- bloodGlucoseManagement/abnormal/index.vue：GET /blood-glucose/patients/abnormal（或 GET /blood-glucose/patients/metrics?scope=abnormal），GET /blood-glucose/patients/{patientId}/waveform
+- bloodGlucoseManagement/discharged/index.vue：GET /blood-glucose/patients/discharged（或 GET /blood-glucose/patients/metrics?scope=discharged），POST /blood-glucose/patients/{patientId}/leave-bed
+- bloodGlucoseManagement/allPatients/index.vue：GET /blood-glucose/patients
+- bloodGlucoseManagement/bedList/index.vue：GET /blood-glucose/bed-view/departments，GET /blood-glucose/bed-view/rooms，GET /blood-glucose/bed-view/rooms/{roomId}/patients，POST /blood-glucose/bed-view/beds/{bedNo}/assign
 
 ## 4.1 病区列表
 - 方法：GET
@@ -201,6 +216,9 @@ Body:
 - reason: string
 - operatorId: number
 
+效果：
+- warning_status 更新为 1（纳入）
+
 ## 4.5 预警排除
 - 方法：POST
 - 路径：/blood-glucose/warnings/{warningId}/exclude
@@ -208,6 +226,9 @@ Body:
 Body:
 - reason: string
 - operatorId: number
+
+效果：
+- warning_status 更新为 0（不纳入）
 
 ## 4.6 预警导出
 - 方法：GET
@@ -242,6 +263,72 @@ Query 参数：
 - status: string
 - desc: string
 
+## 4.7.1 在管患者列表（独立接口）
+- 方法：GET
+- 路径：/blood-glucose/patients/managed
+- 说明：参数与 4.7 一致（不需要传 scope）
+- 页面动作：点击“纳入”调用 POST /blood-glucose/patients/{patientId}/managed/include，患者进入出组患者列表（4.7.2c）
+
+## 4.7.2 待管患者列表（独立接口）
+- 方法：GET
+- 路径：/blood-glucose/patients/unmanaged
+- 说明：参数与 4.7 一致（不需要传 scope）
+- 页面动作：点击“不纳入删除”调用 POST /blood-glucose/patients/{patientId}/unmanaged/delete
+
+## 4.7.2a 心电图测量管理列表（独立接口）
+- 方法：GET
+- 路径：/blood-glucose/patients/measurement
+- 说明：参数与 4.7 一致（不需要传 scope）
+
+## 4.7.2b 异常指标管理列表（独立接口）
+- 方法：GET
+- 路径：/blood-glucose/patients/abnormal
+- 说明：参数与 4.7 一致（不需要传 scope）
+
+## 4.7.2c 出组患者列表（独立接口）
+- 方法：GET
+- 路径：/blood-glucose/patients/discharged
+- 说明：参数与 4.7 一致（不需要传 scope）
+- 进入方式：在管患者列表点击“纳入”（POST /blood-glucose/patients/{patientId}/managed/include）后进入
+
+## 4.7.3 患者纳入（待管 -> 在管）
+- 方法：POST
+- 路径：/blood-glucose/patients/{patientId}/include
+
+Body:
+- reason: string
+- operatorId: number
+
+效果：
+- 将患者最近一条预警的 warning_status 置为 1（纳入）并进入在管列表
+
+## 4.7.4 患者不纳入（在管 -> 待管）
+- 方法：POST
+- 路径：/blood-glucose/patients/{patientId}/exclude
+
+Body:
+- reason: string
+- operatorId: number
+
+效果：
+- 将患者最近一条预警的 warning_status 置为 0（不纳入）
+
+## 4.7.5 待管患者不纳入删除
+- 方法：POST
+- 路径：/blood-glucose/patients/{patientId}/unmanaged/delete
+
+效果：
+- 删除患者最近一条待管记录（warning_status=0）
+- 删除成功后，患者从待管患者列表中移除
+
+## 4.7.6 在管点击纳入 -> 出组
+- 方法：POST
+- 路径：/blood-glucose/patients/{patientId}/managed/include
+
+效果：
+- 仅允许在管患者执行
+- 执行后清空床位，患者进入出组患者列表（/blood-glucose/patients/discharged）
+
 ## 4.8 心电波形详情
 - 方法：GET
 - 路径：/blood-glucose/patients/{patientId}/waveform
@@ -265,7 +352,7 @@ Query 参数：
 - ward: string
 - patient: string
 - patientTag: string
-- groupStatus: string
+- groupStatus: string，1/0（兼容“已纳入/未纳入”）
 - hospitalStatus: string
 - startDate: string
 - endDate: string
@@ -280,7 +367,7 @@ Query 参数：
 - admissionNo
 - admissionDate
 - diagnosis
-- groupStatus
+- groupStatus（1=纳入，0=不纳入）
 - hospitalStatus
 
 ## 4.10 患者离床
@@ -327,9 +414,22 @@ Body:
 - roomId
 - assignTime
 
+## 4.14 血糖管理闭环流程
+1. 预警生成：患者进入预警列表（/blood-glucose/warnings），默认 warning_status=0（不纳入）
+2. 纳入在管：在预警列表或待管页执行 include（/warnings/{warningId}/include 或 /patients/{patientId}/include），warning_status 更新为 1
+3. 在管跟踪：在管页查询 /blood-glucose/patients/managed，仅展示 warning_status=1 的患者
+4. 移出在管：在在管页执行 exclude（/patients/{patientId}/exclude）后，warning_status 改为 0，患者回到待管页
+4a. 待管删除：在待管页执行不纳入删除（/patients/{patientId}/unmanaged/delete）后，患者从待管页移除
+5. 出组入列：在在管页点击纳入（/patients/{patientId}/managed/include）后，患者出组并进入出组页（/patients/discharged）；全院患者页离床（/patients/{patientId}/leave-bed）同样可进入出组页
+6. 床位协同：床位一览表通过 /bed-view/rooms、/bed-view/rooms/{roomId}/patients、/bed-view/beds/{bedNo}/assign 完成床位占用与分配闭环
+
 ---
 
 ## 5. 工作台与数据分析 API
+
+## 5.0 二级标题下接口清单（按 src/views 页面）
+- workbench/index.vue：GET /workbench/overview，GET /workbench/charts/warning-trend，GET /workbench/charts/ward-warning-rank，GET /workbench/patients，GET /workbench/patients/{inpatientNo}/records
+- dataAnalysis/index.vue：GET /analysis/dashboard，GET /analysis/patient-warning-lists
 
 ## 5.1 工作台概览
 - 方法：GET
@@ -404,6 +504,12 @@ Query 参数：
 ---
 
 ## 6. 质量管理 API
+
+## 6.0 二级标题下接口清单（按 src/views 页面）
+- quality/list/index.vue：质量模块入口页，聚合使用 /quality/data、/quality/device、/quality/report 三类接口
+- quality/data/index.vue：GET /quality/data，GET /quality/data/{id}
+- quality/device/index.vue：GET /quality/device，GET /quality/device/{id}/records
+- quality/report/index.vue：GET /quality/report，GET /quality/report/{reportId}，POST /quality/report/{reportId}/appeals
 
 ## 6.1 数据质控分页
 - 方法：GET
@@ -488,6 +594,22 @@ Body:
 
 ## 7. 供应链管理 API
 
+## 7.0 二级标题下接口清单（按 src/views 页面）
+- supplier/list/index.vue：供应链模块入口页，聚合展示 vendor/device/consumable/procurement 四类接口
+- supplier/vendor/info/index.vue：GET/POST/PUT/DELETE /supplier/vendors
+- supplier/vendor/qualifications/index.vue：GET /supplier/vendors/qualifications
+- supplier/vendor/deviceLedger/index.vue：GET /supplier/vendors/device-ledger
+- supplier/device/basicLedger/index.vue：GET /supplier/devices/basic-ledger
+- supplier/device/binding/index.vue：GET /supplier/devices/binding
+- supplier/device/maintenance/index.vue：GET /supplier/devices/maintenance
+- supplier/device/status/index.vue：GET /supplier/devices/status
+- supplier/consumable/info/index.vue：GET /supplier/consumables/info
+- supplier/consumable/inventory/index.vue：GET /supplier/consumables/inventory
+- supplier/consumable/traceability/index.vue：GET /supplier/consumables/traceability
+- supplier/procurement/order/index.vue：GET /supplier/procurement/order
+- supplier/procurement/acceptance/index.vue：GET /supplier/procurement/acceptance
+- supplier/procurement/statistics/index.vue：GET /supplier/procurement/statistics
+
 ## 7.1 厂商管理
 
 ### 7.1.1 厂商分页
@@ -552,6 +674,11 @@ Body:
 ---
 
 ## 8. 系统管理 API
+
+## 8.0 二级标题下接口清单（按 src/views 页面）
+- system/users/index.vue：GET/POST/PUT/PATCH/DELETE /system/users
+- system/departments/index.vue：GET/POST/PUT/DELETE /system/departments
+- system/roles/index.vue：GET/POST/PUT/DELETE /system/roles，GET /system/menus/tree，PUT /system/roles/{id}/menus
 
 ## 8.1 用户管理
 - GET /system/users
@@ -647,6 +774,14 @@ Body:
 
 第二阶段（血糖核心流程）：
 - /blood-glucose/patients/metrics
+- /blood-glucose/patients/managed
+- /blood-glucose/patients/unmanaged
+- /blood-glucose/patients/measurement
+- /blood-glucose/patients/abnormal
+- /blood-glucose/patients/discharged
+- /blood-glucose/patients/{patientId}/include
+- /blood-glucose/patients/{patientId}/exclude
+- /blood-glucose/patients/{patientId}/managed/include
 - /blood-glucose/patients/{patientId}/waveform
 - /blood-glucose/patients
 - /blood-glucose/bed-view/*

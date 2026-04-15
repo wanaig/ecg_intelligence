@@ -147,20 +147,20 @@ public class ApiSpecServiceImpl implements ApiSpecService {
 
     @Override
     public CommonVo.OperationResult includeWarning(Long warningId, BloodGlucoseDto.WarningActionRequest request) {
-        int affected = apiSpecMapper.updateWarningAction(warningId, request.getOperatorId(), request.getReason(), "处理中");
+        int affected = apiSpecMapper.updateWarningAction(warningId, request.getOperatorId(), request.getReason(), "1");
         if (affected == 0) {
             throw new BusinessException(404, "预警不存在");
         }
-        return new CommonVo.OperationResult(String.valueOf(warningId), "include", "预警已纳入");
+        return new CommonVo.OperationResult(String.valueOf(warningId), "include", "预警已纳入(1)");
     }
 
     @Override
     public CommonVo.OperationResult excludeWarning(Long warningId, BloodGlucoseDto.WarningActionRequest request) {
-        int affected = apiSpecMapper.updateWarningAction(warningId, request.getOperatorId(), request.getReason(), "已撤销");
+        int affected = apiSpecMapper.updateWarningAction(warningId, request.getOperatorId(), request.getReason(), "0");
         if (affected == 0) {
             throw new BusinessException(404, "预警不存在");
         }
-        return new CommonVo.OperationResult(String.valueOf(warningId), "exclude", "预警已排除");
+        return new CommonVo.OperationResult(String.valueOf(warningId), "exclude", "预警已不纳入(0)");
     }
 
     @Override
@@ -202,6 +202,57 @@ public class ApiSpecServiceImpl implements ApiSpecService {
         );
         long total = apiSpecMapper.countPatientMetrics(scope, name, status, startDate, endDate);
         return new PageResult<>(total, safePage, safeSize, safeList(list));
+    }
+
+    @Override
+    public CommonVo.OperationResult includePatient(String patientId, BloodGlucoseDto.PatientManageActionRequest request) {
+        String reason = request == null ? null : request.getReason();
+        Long operatorId = request == null ? null : request.getOperatorId();
+        Integer latestManagedFlag = apiSpecMapper.selectLatestPatientManagedFlag(patientId);
+        if (latestManagedFlag != null && latestManagedFlag == 1) {
+            return new CommonVo.OperationResult(patientId, "include", "患者已在管(1)");
+        }
+        int affected = apiSpecMapper.updateLatestPatientManageStatus(patientId, "1", operatorId, reason);
+        if (affected == 0) {
+            throw new BusinessException(404, "患者不存在或缺少可更新的预警记录");
+        }
+        return new CommonVo.OperationResult(patientId, "include", "患者已纳入在管(1)");
+    }
+
+    @Override
+    public CommonVo.OperationResult excludePatient(String patientId, BloodGlucoseDto.PatientManageActionRequest request) {
+        String reason = request == null ? null : request.getReason();
+        Long operatorId = request == null ? null : request.getOperatorId();
+        int affected = apiSpecMapper.updateLatestPatientManageStatus(patientId, "0", operatorId, reason);
+        if (affected == 0) {
+            throw new BusinessException(404, "患者不存在或缺少可更新的预警记录");
+        }
+        return new CommonVo.OperationResult(patientId, "exclude", "患者已标记为不纳入(0)");
+    }
+
+    @Override
+    public CommonVo.OperationResult deleteUnmanagedPatient(String patientId) {
+        int affected = apiSpecMapper.deleteLatestUnmanagedWarning(patientId);
+        if (affected == 0) {
+            throw new BusinessException(404, "未找到可删除的待管记录");
+        }
+        return new CommonVo.OperationResult(patientId, "delete-unmanaged", "待管患者不纳入记录已删除");
+    }
+
+    @Override
+    public CommonVo.OperationResult includeManagedPatientToDischarged(String patientId) {
+        Integer latestManagedFlag = apiSpecMapper.selectLatestPatientManagedFlag(patientId);
+        if (latestManagedFlag == null) {
+            throw new BusinessException(404, "患者不存在或缺少可更新的预警记录");
+        }
+        if (latestManagedFlag != 1) {
+            throw new BusinessException(409, "患者当前不在管，无法执行出组");
+        }
+        int affected = apiSpecMapper.clearPatientBed(patientId);
+        if (affected == 0) {
+            throw new BusinessException(404, "患者不存在");
+        }
+        return new CommonVo.OperationResult(patientId, "managed-include-discharge", "患者已从在管转入出组");
     }
 
     @Override
