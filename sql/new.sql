@@ -116,6 +116,7 @@ CREATE TABLE `sys_ecg_ward_info` (
 -- 患者、医生、测量及核心业务部分 (参考 reset_mock_data.sql)
 -- ============================================================================
 
+-- 患者信息表
 CREATE TABLE `sys_ecg_patient_info` (
   `patient_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '患者ID，主键',
   `patient_name` VARCHAR(20) NOT NULL COMMENT '患者姓名',
