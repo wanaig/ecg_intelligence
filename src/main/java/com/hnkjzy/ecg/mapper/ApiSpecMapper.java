@@ -145,6 +145,11 @@ public interface ApiSpecMapper {
                             @Param("reason") String reason,
                             @Param("warningStatus") String warningStatus);
 
+    @Select("""
+        SELECT patient_id FROM sys_ecg_abnormal_warning WHERE warning_id = #{warningId}
+    """)
+    String selectPatientIdByWarningId(@Param("warningId") Long warningId);
+
     @Update("""
         UPDATE sys_ecg_abnormal_warning
         SET warning_status = #{managedStatus},
@@ -171,6 +176,38 @@ public interface ApiSpecMapper {
                                         @Param("managedStatus") String managedStatus,
                                         @Param("operatorId") Long operatorId,
                                         @Param("reason") String reason);
+
+    @Update("""
+        UPDATE bed_info b
+        JOIN sys_ecg_patient_info p ON b.patient_id = p.patient_id
+        SET b.status = 0, b.patient_id = NULL
+        WHERE p.inpatient_no = #{patientId} OR CAST(p.patient_id AS CHAR) = #{patientId}
+    """)
+    int clearBedForPatient(@Param("patientId") String patientId);
+
+    @Select("""
+        SELECT bed_id FROM bed_info
+        WHERE status = 0
+        ORDER BY ward_id, bed_id
+        LIMIT 1
+    """)
+    Long findEmptyBed();
+
+    @Update("""
+        UPDATE bed_info b
+        JOIN sys_ecg_patient_info p ON p.inpatient_no = #{patientId} OR CAST(p.patient_id AS CHAR) = #{patientId}
+        SET b.status = 1, b.patient_id = p.patient_id
+        WHERE b.bed_id = #{bedId}
+    """)
+    int occupyEmptyBedForPatient(@Param("bedId") Long bedId, @Param("patientId") String patientId);
+
+    @Update("""
+        UPDATE sys_ecg_patient_info p
+        JOIN bed_info b ON b.bed_id = #{bedId}
+        SET p.bed_no = b.bed_no, p.ward_id = b.ward_id
+        WHERE p.inpatient_no = #{patientId} OR CAST(p.patient_id AS CHAR) = #{patientId}
+    """)
+    int syncPatientBedAssigned(@Param("bedId") Long bedId, @Param("patientId") String patientId);
 
     @Delete("""
         DELETE FROM sys_ecg_abnormal_warning
@@ -555,52 +592,53 @@ public interface ApiSpecMapper {
     @Select("""
         <script>
         SELECT
-            t.room_id AS id,
-            CONCAT(t.room_id, '病房') AS name,
-            (
-                SELECT d.doctor_name
-                FROM sys_ecg_doctor_info d
-                WHERE d.ward_id = t.ward_id
-                ORDER BY d.doctor_id
-                LIMIT 1
-            ) AS nurse,
-            2 AS total_beds,
-            t.occupied_beds
-        FROM (
-            SELECT
-                p.ward_id,
-                                CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) * 100 + 1 AS UNSIGNED) AS room_id,
-                COUNT(*) AS occupied_beds
-            FROM sys_ecg_patient_info p
-            WHERE p.bed_no IS NOT NULL
-              AND p.bed_no != ''
-              AND p.bed_no REGEXP '^[0-9]+$'
-              <if test='wardId != null'>
-                AND p.ward_id = #{wardId}
-              </if>
-                        GROUP BY p.ward_id, CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) * 100 + 1 AS UNSIGNED)
-        ) t
-        ORDER BY t.room_id
+            w.ward_id AS id,
+            w.ward_no AS name,
+            w.nurse_name AS nurse,
+            w.total_beds AS total_beds,
+            SUM(CASE WHEN IFNULL(b.status, 0) = 1 THEN 1 ELSE 0 END) AS occupied_beds,
+            w.ward_id AS `wardInfo.wardId`,
+            w.department AS `wardInfo.department`,
+            w.ward_no AS `wardInfo.wardNo`,
+            w.nurse_name AS `wardInfo.nurseName`,
+            w.total_beds AS `wardInfo.totalBeds`
+        FROM ward_info w
+        LEFT JOIN bed_info b ON w.ward_id = b.ward_id
+        <where>
+            <if test='wardId != null'>
+                w.ward_id = #{wardId}
+            </if>
+        </where>
+        GROUP BY w.ward_id, w.department, w.ward_no, w.nurse_name, w.total_beds
+        ORDER BY w.ward_id
         </script>
         """)
     List<BloodGlucoseVo.RoomItem> listRooms(@Param("wardId") Long wardId);
 
     @Select("""
         SELECT
-            LPAD(MOD(CAST(p.bed_no AS UNSIGNED), 100), 2, '0') AS bed,
+            b.bed_no AS bed,
             DATE_FORMAT(COALESCE(m.start_time, m.create_time), '%Y-%m-%d %H:%i:%s') AS time,
             p.patient_name AS name,
-            CONCAT(DATEDIFF(CURDATE(), p.inpatient_date), '天') AS day,
-            IFNULL(w.warning_content, '监测中') AS `condition`,
+            CONCAT(IFNULL(DATEDIFF(CURDATE(), COALESCE(p.inpatient_date, p.create_time)), 0), '天') AS day,
+            IFNULL(w.warning_content, '正常监测') AS `condition`,
             CASE
+                WHEN p.patient_id IS NULL THEN ''
                 WHEN w.warning_id IS NULL THEN '观察中'
                 WHEN IFNULL(w.warning_level, '') IN ('', '正常') THEN '稳定'
                 ELSE '监护中'
             END AS status,
             IFNULL(f.follow_advice, '常规治疗') AS medication,
-            DATEDIFF(CURDATE(), p.inpatient_date) AS hospital_days,
-            FALSE AS is_empty
-        FROM sys_ecg_patient_info p
+            IFNULL(DATEDIFF(CURDATE(), COALESCE(p.inpatient_date, p.create_time)), 0) AS hospital_days,
+            CASE WHEN IFNULL(b.status, 0) = 0 THEN TRUE ELSE FALSE END AS is_empty,
+            wi.ward_id AS `wardInfo.wardId`,
+            wi.department AS `wardInfo.department`,
+            wi.ward_no AS `wardInfo.wardNo`,
+            wi.nurse_name AS `wardInfo.nurseName`,
+            wi.total_beds AS `wardInfo.totalBeds`
+        FROM bed_info b
+        LEFT JOIN ward_info wi ON b.ward_id = wi.ward_id
+        LEFT JOIN sys_ecg_patient_info p ON b.patient_id = p.patient_id
         LEFT JOIN sys_ecg_measure_record m ON m.measure_id = (
             SELECT mm.measure_id
             FROM sys_ecg_measure_record mm
@@ -622,9 +660,8 @@ public interface ApiSpecMapper {
             ORDER BY ff.follow_time DESC, ff.follow_id DESC
             LIMIT 1
         )
-        WHERE p.bed_no REGEXP '^[0-9]+$'
-                    AND CAST(FLOOR(CAST(p.bed_no AS UNSIGNED) / 100) * 100 + 1 AS UNSIGNED) = #{roomId}
-        ORDER BY CAST(p.bed_no AS UNSIGNED)
+        WHERE b.ward_id = #{roomId}
+        ORDER BY b.bed_id
         """)
     List<BloodGlucoseVo.RoomPatientItem> listRoomPatients(@Param("roomId") Long roomId);
 

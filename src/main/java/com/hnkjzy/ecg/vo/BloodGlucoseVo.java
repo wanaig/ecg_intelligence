@@ -118,12 +118,24 @@ public class BloodGlucoseVo {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class WardRoomInfo {
+        private Long wardId;
+        private String department;
+        private String wardNo;
+        private String nurseName;
+        private Integer totalBeds;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class RoomItem {
         private Long id;
         private String name;
         private String nurse;
         private Integer totalBeds;
         private Integer occupiedBeds;
+        private WardRoomInfo wardInfo;
     }
 
     @Data
@@ -139,6 +151,7 @@ public class BloodGlucoseVo {
         private String medication;
         private Integer hospitalDays;
         private Boolean isEmpty;
+        private WardRoomInfo wardInfo;
     }
 
     @Data
