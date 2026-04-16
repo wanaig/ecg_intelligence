@@ -129,6 +129,9 @@ CREATE TABLE `sys_ecg_patient_info` (
   `inpatient_diagnosis` VARCHAR(100) NULL COMMENT '住院诊断',
   `ward_id` INT NULL COMMENT '病区ID',
   `phone` VARCHAR(20) NULL COMMENT '联系方式',
+  `heart_rate` DECIMAL(5, 1) NULL COMMENT '心率',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态：1=异常 0=正常',
+  `desc` VARCHAR(100) NULL COMMENT '心律描述',
   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='患者信息表';
 

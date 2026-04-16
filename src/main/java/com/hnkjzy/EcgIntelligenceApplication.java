@@ -9,8 +9,10 @@ package com.hnkjzy;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling
 /**
  * 类说明：EcgIntelligenceApplication。
  * 业务定位：负责应用启动与基础支撑能力。

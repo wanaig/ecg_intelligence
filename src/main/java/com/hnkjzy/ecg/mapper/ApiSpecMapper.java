@@ -300,7 +300,7 @@ public interface ApiSpecMapper {
             p.patient_name AS name,
             p.bed_no,
             DATE_FORMAT(COALESCE(m.start_time, m.create_time), '%Y-%m-%d %H:%i:%s') AS measure_time,
-            ci.avg_heart_rate AS heart_rate,
+            p.heart_rate AS heart_rate,
             ROUND(IFNULL(ci.hrv_lf_hf, 0), 2) AS st_segment,
             ROUND(IFNULL(ci.max_rr_interval, 0) * 1000, 1) AS qt,
             ROUND(IFNULL(ci.hrv_sdnn, 0), 1) AS qrs,
@@ -309,7 +309,7 @@ public interface ApiSpecMapper {
                      AND IFNULL(w.warning_level, '') NOT IN ('', '正常') THEN 'abnormal'
                 ELSE 'stable'
             END AS status,
-            IFNULL(ai.ai_diagnosis, '暂无AI结论') AS `desc`
+            IFNULL(p.`desc`, '心律基本平稳') AS `desc`
         FROM sys_ecg_patient_info p
         LEFT JOIN sys_ecg_measure_record m ON m.measure_id = (
             SELECT mm.measure_id
@@ -319,7 +319,6 @@ public interface ApiSpecMapper {
             LIMIT 1
         )
         LEFT JOIN sys_ecg_core_index ci ON ci.measure_id = m.measure_id
-        LEFT JOIN sys_ecg_ai_analysis ai ON ai.measure_id = m.measure_id
         LEFT JOIN sys_ecg_abnormal_warning w ON w.warning_id = (
             SELECT ww.warning_id
             FROM sys_ecg_abnormal_warning ww
@@ -455,7 +454,7 @@ public interface ApiSpecMapper {
             p.inpatient_no AS patient_id,
             m.measure_id,
             250 AS sample_rate,
-            ci.avg_heart_rate AS heart_rate,
+            p.heart_rate AS heart_rate,
             ROUND(IFNULL(ci.hrv_lf_hf, 0), 2) AS st_segment,
             ROUND(IFNULL(ci.max_rr_interval, 0) * 1000, 1) AS qt,
             ROUND(IFNULL(ci.hrv_sdnn, 0), 1) AS qrs
@@ -846,7 +845,7 @@ public interface ApiSpecMapper {
                 WHERE ww.patient_id = p.patient_id
                 AND IFNULL(ww.warning_level, '') NOT IN ('', '正常')
             ) AS abn_times,
-            CAST(IFNULL(ci.max_heart_rate, 0) AS SIGNED) AS max_hr,
+            CAST(IFNULL(p.heart_rate, 0) AS SIGNED) AS max_hr,
             (
                 SELECT COUNT(*)
                 FROM sys_ecg_abnormal_warning ww
@@ -863,7 +862,6 @@ public interface ApiSpecMapper {
             LIMIT 1
         )
         LEFT JOIN sys_ecg_equipment_info e ON e.equipment_id = m.equipment_id
-        LEFT JOIN sys_ecg_core_index ci ON ci.measure_id = m.measure_id
         <where>
             <if test='ward != null and ward != ""'>
                 AND wd.ward_name LIKE CONCAT('%', #{ward}, '%')
@@ -1015,10 +1013,10 @@ public interface ApiSpecMapper {
 
     @Select("""
         SELECT
-            CASE WHEN ci.avg_heart_rate BETWEEN 60 AND 100 THEN '正常' ELSE '异常' END AS label,
+            CASE WHEN IFNULL(p.heart_rate, 0) BETWEEN 60 AND 100 THEN '正常' ELSE '异常' END AS label,
             COUNT(*) AS value
-        FROM sys_ecg_core_index ci
-        GROUP BY CASE WHEN ci.avg_heart_rate BETWEEN 60 AND 100 THEN '正常' ELSE '异常' END
+        FROM sys_ecg_patient_info p
+        GROUP BY CASE WHEN IFNULL(p.heart_rate, 0) BETWEEN 60 AND 100 THEN '正常' ELSE '异常' END
         """)
     List<AnalysisVo.NamedValue> listGlucoseDistManaged();
 
@@ -1093,7 +1091,7 @@ public interface ApiSpecMapper {
                 IFNULL(m.measure_type, '动态心电') AS type,
                 ROUND(
                     LEAST(100, GREATEST(60,
-                        100 - IFNULL(ABS(ci.max_heart_rate - ci.min_heart_rate), 0) * 0.6
+                        100 - IFNULL(ABS(IFNULL(p.heart_rate, 80) - 80), 0) * 0.6
                           - IFNULL(CASE WHEN w.warning_level IN ('重度', '紧急', '危急') THEN 18
                                         WHEN w.warning_level = '中度' THEN 10
                                         WHEN w.warning_level = '轻度' THEN 4
@@ -1103,7 +1101,7 @@ public interface ApiSpecMapper {
                 CASE
                     WHEN ROUND(
                         LEAST(100, GREATEST(60,
-                            100 - IFNULL(ABS(ci.max_heart_rate - ci.min_heart_rate), 0) * 0.6
+                            100 - IFNULL(ABS(IFNULL(p.heart_rate, 80) - 80), 0) * 0.6
                               - IFNULL(CASE WHEN w.warning_level IN ('重度', '紧急', '危急') THEN 18
                                             WHEN w.warning_level = '中度' THEN 10
                                             WHEN w.warning_level = '轻度' THEN 4
@@ -1112,7 +1110,7 @@ public interface ApiSpecMapper {
                     1) &gt;= 90 THEN 'A'
                     WHEN ROUND(
                         LEAST(100, GREATEST(60,
-                            100 - IFNULL(ABS(ci.max_heart_rate - ci.min_heart_rate), 0) * 0.6
+                            100 - IFNULL(ABS(IFNULL(p.heart_rate, 80) - 80), 0) * 0.6
                               - IFNULL(CASE WHEN w.warning_level IN ('重度', '紧急', '危急') THEN 18
                                             WHEN w.warning_level = '中度' THEN 10
                                             WHEN w.warning_level = '轻度' THEN 4
@@ -1162,7 +1160,7 @@ public interface ApiSpecMapper {
                 CASE
                     WHEN ROUND(
                         LEAST(100, GREATEST(60,
-                            100 - IFNULL(ABS(ci.max_heart_rate - ci.min_heart_rate), 0) * 0.6
+                            100 - IFNULL(ABS(IFNULL(p.heart_rate, 80) - 80), 0) * 0.6
                               - IFNULL(CASE WHEN w.warning_level IN ('重度', '紧急', '危急') THEN 18
                                             WHEN w.warning_level = '中度' THEN 10
                                             WHEN w.warning_level = '轻度' THEN 4
@@ -1171,7 +1169,7 @@ public interface ApiSpecMapper {
                     1) &gt;= 90 THEN 'A'
                     WHEN ROUND(
                         LEAST(100, GREATEST(60,
-                            100 - IFNULL(ABS(ci.max_heart_rate - ci.min_heart_rate), 0) * 0.6
+                            100 - IFNULL(ABS(IFNULL(p.heart_rate, 80) - 80), 0) * 0.6
                               - IFNULL(CASE WHEN w.warning_level IN ('重度', '紧急', '危急') THEN 18
                                             WHEN w.warning_level = '中度' THEN 10
                                             WHEN w.warning_level = '轻度' THEN 4
@@ -1212,7 +1210,7 @@ public interface ApiSpecMapper {
             IFNULL(m.measure_type, '动态心电') AS type,
             ROUND(
                 LEAST(100, GREATEST(60,
-                    100 - IFNULL(ABS(ci.max_heart_rate - ci.min_heart_rate), 0) * 0.6
+                    100 - IFNULL(ABS(IFNULL(p.heart_rate, 80) - 80), 0) * 0.6
                       - IFNULL(CASE WHEN w.warning_level IN ('重度', '紧急', '危急') THEN 18
                                     WHEN w.warning_level = '中度' THEN 10
                                     WHEN w.warning_level = '轻度' THEN 4
@@ -1222,7 +1220,7 @@ public interface ApiSpecMapper {
             CASE
                 WHEN ROUND(
                     LEAST(100, GREATEST(60,
-                        100 - IFNULL(ABS(ci.max_heart_rate - ci.min_heart_rate), 0) * 0.6
+                        100 - IFNULL(ABS(IFNULL(p.heart_rate, 80) - 80), 0) * 0.6
                           - IFNULL(CASE WHEN w.warning_level IN ('重度', '紧急', '危急') THEN 18
                                         WHEN w.warning_level = '中度' THEN 10
                                         WHEN w.warning_level = '轻度' THEN 4
@@ -1231,7 +1229,7 @@ public interface ApiSpecMapper {
                 1) >= 90 THEN 'A'
                 WHEN ROUND(
                     LEAST(100, GREATEST(60,
-                        100 - IFNULL(ABS(ci.max_heart_rate - ci.min_heart_rate), 0) * 0.6
+                        100 - IFNULL(ABS(IFNULL(p.heart_rate, 80) - 80), 0) * 0.6
                           - IFNULL(CASE WHEN w.warning_level IN ('重度', '紧急', '危急') THEN 18
                                         WHEN w.warning_level = '中度' THEN 10
                                         WHEN w.warning_level = '轻度' THEN 4

@@ -109,6 +109,27 @@ public interface PatientMapper {
      */
     int update(PatientInfo patientInfo);
 
+    @Update("""
+        UPDATE sys_ecg_patient_info
+        SET status = CASE WHEN IFNULL(heart_rate, 0) > 100 THEN 1 ELSE 0 END,
+            `desc` = CASE WHEN IFNULL(heart_rate, 0) > 100 THEN '疑似异常心律' ELSE '心律基本平稳' END
+        """)
+    /**
+     * SQL说明：修改数据库操作，方法名为 refreshHeartRateStatus。
+     * 使用约定：入参与SQL条件保持一致，出参与业务模型字段保持映射一致。
+     */
+    int refreshHeartRateStatus();
+
+    @Update("""
+        UPDATE sys_ecg_patient_info
+        SET heart_rate = FLOOR(60 + RAND() * 141)
+        """)
+    /**
+     * SQL说明：修改数据库操作，方法名为 randomizeHeartRate。
+     * 使用约定：入参与SQL条件保持一致，出参与业务模型字段保持映射一致。
+     */
+    int randomizeHeartRate();
+
     @Delete("DELETE FROM sys_ecg_patient_info WHERE patient_id = #{id}")
     /**
      * SQL说明：删除数据库操作，方法名为 deleteById。

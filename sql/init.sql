@@ -1,3 +1,32 @@
+
+-- ============================================================================
+-- 字典表部分 (参考 reset_mock_data.sql)
+-- ============================================================================
+
+CREATE TABLE `sys_dict_equipment_type` (
+  `dict_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '字典ID',
+  `type_code` VARCHAR(30) NOT NULL COMMENT '类型编码',
+  `type_name` VARCHAR(30) NOT NULL COMMENT '类型名称',
+  `type_desc` VARCHAR(255) NULL COMMENT '类型描述',
+  `sort` INT DEFAULT 0 NULL COMMENT '排序号'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备类型字典表';
+
+CREATE TABLE `sys_dict_warning_level` (
+  `dict_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '字典ID',
+  `level_code` VARCHAR(20) NOT NULL COMMENT '级别编码',
+  `level_name` VARCHAR(20) NOT NULL COMMENT '级别名称',
+  `level_desc` VARCHAR(255) NULL COMMENT '级别描述',
+  `sort` INT DEFAULT 0 NULL COMMENT '排序号'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警级别字典表';
+
+CREATE TABLE `sys_dict_warning_type` (
+  `dict_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '字典ID',
+  `type_code` VARCHAR(30) NOT NULL COMMENT '类型编码',
+  `type_name` VARCHAR(30) NOT NULL COMMENT '类型名称',
+  `type_desc` VARCHAR(255) NULL COMMENT '类型描述',
+  `sort` INT DEFAULT 0 NULL COMMENT '排序号'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警类型字典表';
+
 -- ============================================================================
 -- 患者、医生、测量及核心业务部分 (参考 reset_mock_data.sql)
 -- ============================================================================
@@ -16,7 +45,9 @@ CREATE TABLE `sys_ecg_patient_info` (
   `discharge_diagnosis` VARCHAR(100) NULL COMMENT '出院诊断',
   `ward_id` INT NULL COMMENT '病区ID',
   `phone` VARCHAR(20) NULL COMMENT '联系方式',
-  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1=在院 0=出院',
+  `heart_rate` DECIMAL(5, 1) NULL COMMENT '心率',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态：1=异常 0=正常',
+  `desc` VARCHAR(100) NULL COMMENT '心律描述',
   `discharge_time` DATETIME NULL COMMENT '出院时间',
   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='患者信息表';

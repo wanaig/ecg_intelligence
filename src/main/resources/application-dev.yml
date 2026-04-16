@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: '${MYSQL_URL:jdbc:mysql://localhost:3306/ecg_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}'
+    url: '${MYSQL_URL:jdbc:mysql://112.124.70.235:4406/ecg_test2?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}'
     username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:1234}
+    password: ${MYSQL_PASSWORD:wanaiwanai}
     driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:
