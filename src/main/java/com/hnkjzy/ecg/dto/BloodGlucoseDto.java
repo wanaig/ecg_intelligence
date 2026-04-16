@@ -12,11 +12,9 @@ public class BloodGlucoseDto {
 
     @Data
     public static class WarningActionRequest {
-        @NotBlank(message = "reason不能为空")
         @Size(max = 200, message = "reason长度不能超过200")
         private String reason;
 
-        @NotNull(message = "operatorId不能为空")
         @Positive(message = "operatorId必须为正数")
         private Long operatorId;
     }

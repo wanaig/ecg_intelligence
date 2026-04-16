@@ -69,14 +69,16 @@ public class BloodGlucoseController {
 
     @PostMapping("/warnings/{warningId}/include")
     public ApiResponse<CommonVo.OperationResult> includeWarning(@PathVariable @Positive(message = "warningId必须为正数") Long warningId,
-                                                                @Valid @RequestBody BloodGlucoseDto.WarningActionRequest request) {
-        return ApiResponse.success(apiSpecService.includeWarning(warningId, request));
+                                                                @RequestParam(required = false) String reason,
+                                                                @RequestParam(required = false) @Positive(message = "operatorId必须为正数") Long operatorId) {
+        return ApiResponse.success(apiSpecService.includeWarning(warningId, buildWarningActionRequest(reason, operatorId)));
     }
 
     @PostMapping("/warnings/{warningId}/exclude")
     public ApiResponse<CommonVo.OperationResult> excludeWarning(@PathVariable @Positive(message = "warningId必须为正数") Long warningId,
-                                                                @Valid @RequestBody BloodGlucoseDto.WarningActionRequest request) {
-        return ApiResponse.success(apiSpecService.excludeWarning(warningId, request));
+                                                                @RequestParam(required = false) String reason,
+                                                                @RequestParam(required = false) @Positive(message = "operatorId必须为正数") Long operatorId) {
+        return ApiResponse.success(apiSpecService.excludeWarning(warningId, buildWarningActionRequest(reason, operatorId)));
     }
 
     @GetMapping("/warnings/export")
@@ -298,5 +300,15 @@ public class BloodGlucoseController {
     public ApiResponse<CommonVo.OperationResult> assignBed(@PathVariable @NotBlank(message = "bedNo不能为空") String bedNo,
                                                            @Valid @RequestBody BloodGlucoseDto.AssignBedRequest request) {
         return ApiResponse.success(apiSpecService.assignBed(bedNo, request));
+    }
+
+    private BloodGlucoseDto.WarningActionRequest buildWarningActionRequest(String reason, Long operatorId) {
+        if ((reason == null || reason.isBlank()) && operatorId == null) {
+            return null;
+        }
+        BloodGlucoseDto.WarningActionRequest request = new BloodGlucoseDto.WarningActionRequest();
+        request.setReason(reason);
+        request.setOperatorId(operatorId);
+        return request;
     }
 }

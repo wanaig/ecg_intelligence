@@ -211,24 +211,20 @@ Query 参数：
 ## 4.4 预警纳入
 - 方法：POST
 - 路径：/blood-glucose/warnings/{warningId}/include
-
-Body:
-- reason: string
-- operatorId: number
+- Query（可选）：reason、operatorId
 
 效果：
 - warning_status 更新为 1（纳入）
+- 该预警对应患者可在异常指标列表接口（/blood-glucose/patients/abnormal）中查询到
 
 ## 4.5 预警排除
 - 方法：POST
 - 路径：/blood-glucose/warnings/{warningId}/exclude
-
-Body:
-- reason: string
-- operatorId: number
+- Query（可选）：reason、operatorId
 
 效果：
-- warning_status 更新为 0（不纳入）
+- 执行不纳入删除：直接删除该预警记录
+- 删除成功后，预警从预警列表移除
 
 ## 4.6 预警导出
 - 方法：GET

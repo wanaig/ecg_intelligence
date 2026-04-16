@@ -149,34 +149,22 @@ public class ApiSpecServiceImpl implements ApiSpecService {
 
     @Override
     public CommonVo.OperationResult includeWarning(Long warningId, BloodGlucoseDto.WarningActionRequest request) {
-        String patientId = apiSpecMapper.selectPatientIdByWarningId(warningId);
-        if (patientId != null) {
-            Integer latestManagedFlag = apiSpecMapper.selectLatestPatientManagedFlag(patientId);
-            if (latestManagedFlag == null || latestManagedFlag != 1) {
-                // 如果目前不是在管状态，准备纳入那就需要床位
-                Long emptyBedId = apiSpecMapper.findEmptyBed();
-                if (emptyBedId == null) {
-                    throw new BusinessException(409, "当前无空闲床位，房间满员，不能纳入！");
-                }
-                apiSpecMapper.occupyEmptyBedForPatient(emptyBedId, patientId);
-                apiSpecMapper.syncPatientBedAssigned(emptyBedId, patientId);
-            }
-        }
-
-        int affected = apiSpecMapper.updateWarningAction(warningId, request.getOperatorId(), request.getReason(), "1");
+        Long operatorId = request == null ? null : request.getOperatorId();
+        String reason = request == null ? null : request.getReason();
+        int affected = apiSpecMapper.updateWarningAction(warningId, operatorId, reason, "0");
         if (affected == 0) {
             throw new BusinessException(404, "预警不存在");
         }
-        return new CommonVo.OperationResult(String.valueOf(warningId), "include", "预警已纳入(1)");
+        return new CommonVo.OperationResult(String.valueOf(warningId), "include", "预警已纳入，warning_status=0");
     }
 
     @Override
     public CommonVo.OperationResult excludeWarning(Long warningId, BloodGlucoseDto.WarningActionRequest request) {
-        int affected = apiSpecMapper.updateWarningAction(warningId, request.getOperatorId(), request.getReason(), "0");
+        int affected = apiSpecMapper.deleteWarningById(warningId);
         if (affected == 0) {
             throw new BusinessException(404, "预警不存在");
         }
-        return new CommonVo.OperationResult(String.valueOf(warningId), "exclude", "预警已不纳入(0)");
+        return new CommonVo.OperationResult(String.valueOf(warningId), "exclude-delete", "预警已不纳入并删除");
     }
 
     @Override
@@ -243,6 +231,7 @@ public class ApiSpecServiceImpl implements ApiSpecService {
         // 自动分配该空余床位
         apiSpecMapper.occupyEmptyBedForPatient(emptyBedId, patientId);
         apiSpecMapper.syncPatientBedAssigned(emptyBedId, patientId);
+        apiSpecMapper.updatePatientStatus(patientId, 1);
         
         return new CommonVo.OperationResult(patientId, "include", "患者已纳入在管(1)并分配床位");
     }
@@ -269,6 +258,9 @@ public class ApiSpecServiceImpl implements ApiSpecService {
         if (affected == 0) {
             throw new BusinessException(404, "未找到可删除的待管记录");
         }
+        apiSpecMapper.clearBedForPatient(patientId);
+        apiSpecMapper.clearPatientBed(patientId);
+        apiSpecMapper.updatePatientStatus(patientId, 0);
         return new CommonVo.OperationResult(patientId, "delete-unmanaged", "待管患者不纳入记录已删除");
     }
 
@@ -289,6 +281,7 @@ public class ApiSpecServiceImpl implements ApiSpecService {
         if (affected == 0) {
             throw new BusinessException(404, "患者不存在");
         }
+        apiSpecMapper.updatePatientStatus(patientId, 0);
         return new CommonVo.OperationResult(patientId, "managed-include-discharge", "患者已从在管转入出组，床位已清空");
     }
 
@@ -367,6 +360,7 @@ public class ApiSpecServiceImpl implements ApiSpecService {
         if (affected == 0) {
             throw new BusinessException(404, "患者不存在");
         }
+        apiSpecMapper.updatePatientStatus(patientId, 0);
         return new CommonVo.OperationResult(patientId, "leave-bed", "患者离床操作已记录，床位已清空");
     }
 

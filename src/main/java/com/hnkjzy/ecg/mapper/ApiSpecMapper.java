@@ -36,13 +36,13 @@ public interface ApiSpecMapper {
             p.ward_id,
             wd.ward_name,
             wd.ward_phone,
-            COALESCE(dict.type_code, w.warning_type) AS index_code,
-            COALESCE(dict.type_name, w.warning_type) AS index_name
+            w.warning_type AS index_code,
+            w.warning_type AS index_name
         FROM sys_ecg_abnormal_warning w
         JOIN sys_ecg_patient_info p ON p.patient_id = w.patient_id
         LEFT JOIN sys_ecg_ward_info wd ON wd.ward_id = p.ward_id
-        LEFT JOIN sys_dict_warning_type dict ON dict.type_name = w.warning_type OR dict.type_code = w.warning_type
         <where>
+            AND IFNULL(w.warning_status, '0') IN ('1', '已纳入')
             <if test='status != null and status != "" and status != "ALL"'>
                 AND (
                     (#{status} = '危急' AND IFNULL(w.warning_level, '') IN ('危急', '紧急', '重度'))
@@ -60,7 +60,7 @@ public interface ApiSpecMapper {
                 AND (p.patient_name LIKE CONCAT('%', #{patientKeyword}, '%') OR p.inpatient_no LIKE CONCAT('%', #{patientKeyword}, '%'))
             </if>
             <if test='indexName != null and indexName != ""'>
-                AND (w.warning_type LIKE CONCAT('%', #{indexName}, '%') OR dict.type_name LIKE CONCAT('%', #{indexName}, '%'))
+                AND w.warning_type LIKE CONCAT('%', #{indexName}, '%')
             </if>
             <if test='condition != null and condition != ""'>
                 <if test='condition == ">"'>
@@ -115,8 +115,8 @@ public interface ApiSpecMapper {
         FROM sys_ecg_abnormal_warning w
         JOIN sys_ecg_patient_info p ON p.patient_id = w.patient_id
         LEFT JOIN sys_ecg_ward_info wd ON wd.ward_id = p.ward_id
-        LEFT JOIN sys_dict_warning_type dict ON dict.type_name = w.warning_type OR dict.type_code = w.warning_type
         <where>
+            AND IFNULL(w.warning_status, '0') IN ('1', '已纳入')
             <if test='status != null and status != "" and status != "ALL"'>
                 AND (
                     (#{status} = '危急' AND IFNULL(w.warning_level, '') IN ('危急', '紧急', '重度'))
@@ -134,7 +134,7 @@ public interface ApiSpecMapper {
                 AND (p.patient_name LIKE CONCAT('%', #{patientKeyword}, '%') OR p.inpatient_no LIKE CONCAT('%', #{patientKeyword}, '%'))
             </if>
             <if test='indexName != null and indexName != ""'>
-                AND (w.warning_type LIKE CONCAT('%', #{indexName}, '%') OR dict.type_name LIKE CONCAT('%', #{indexName}, '%'))
+                AND w.warning_type LIKE CONCAT('%', #{indexName}, '%')
             </if>
             <if test='condition != null and condition != ""'>
                 <if test='condition == ">"'>
@@ -191,6 +191,11 @@ public interface ApiSpecMapper {
                             @Param("operatorId") Long operatorId,
                             @Param("reason") String reason,
                             @Param("warningStatus") String warningStatus);
+
+    @Delete("""
+        DELETE FROM sys_ecg_abnormal_warning WHERE warning_id = #{warningId}
+        """)
+    int deleteWarningById(@Param("warningId") Long warningId);
 
     @Select("""
         SELECT patient_id FROM sys_ecg_abnormal_warning WHERE warning_id = #{warningId}
@@ -334,7 +339,7 @@ public interface ApiSpecMapper {
             </if>
             <if test='scope != null and scope != ""'>
                 <if test='scope.equals("discharged")'>
-                    AND (p.bed_no IS NULL OR p.bed_no = '')
+                    AND IFNULL(p.status, 1) = 0
                 </if>
                 <if test='scope.equals("measurement")'>
                     AND m.measure_id IS NOT NULL
@@ -351,6 +356,7 @@ public interface ApiSpecMapper {
                 <if test='scope.equals("abnormal")'>
                     AND w.warning_id IS NOT NULL
                     AND IFNULL(w.warning_level, '') NOT IN ('', '正常')
+                    AND IFNULL(w.warning_status, '0') IN ('0', '未纳入')
                 </if>
             </if>
             <if test='status != null and status != ""'>
@@ -405,7 +411,7 @@ public interface ApiSpecMapper {
             </if>
             <if test='scope != null and scope != ""'>
                 <if test='scope.equals("discharged")'>
-                    AND (p.bed_no IS NULL OR p.bed_no = '')
+                    AND IFNULL(p.status, 1) = 0
                 </if>
                 <if test='scope.equals("measurement")'>
                     AND m.measure_id IS NOT NULL
@@ -422,6 +428,7 @@ public interface ApiSpecMapper {
                 <if test='scope.equals("abnormal")'>
                     AND w.warning_id IS NOT NULL
                     AND IFNULL(w.warning_level, '') NOT IN ('', '正常')
+                    AND IFNULL(w.warning_status, '0') IN ('0', '未纳入')
                 </if>
             </if>
             <if test='status != null and status != ""'>
@@ -639,6 +646,14 @@ public interface ApiSpecMapper {
         WHERE inpatient_no = #{patientId} OR CAST(patient_id AS CHAR) = #{patientId}
         """)
     int clearPatientBedAndWard(@Param("patientId") String patientId);
+
+    @Update("""
+        UPDATE sys_ecg_patient_info
+        SET status = #{status}
+        WHERE inpatient_no = #{patientId} OR CAST(patient_id AS CHAR) = #{patientId}
+        """)
+    int updatePatientStatus(@Param("patientId") String patientId,
+                            @Param("status") Integer status);
 
     @Select("""
         <script>

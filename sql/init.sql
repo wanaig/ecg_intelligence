@@ -191,3 +191,156 @@ CREATE TABLE `sys_ecg_report` (
   `report_status` VARCHAR(20) DEFAULT '草稿' NULL COMMENT '报告状态',
   `report_path` VARCHAR(255) NULL COMMENT '报告PDF路径'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='心电图报告表';
+
+
+-- ============================================================================
+-- 系统管理核心表
+-- ============================================================================
+
+-- 科室表
+CREATE TABLE `sys_department` (
+                                  `dept_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                  `parent_id` BIGINT DEFAULT 0 COMMENT '父级科室ID，0为顶级',
+                                  `dept_name` VARCHAR(50) NOT NULL COMMENT '科室名称',
+                                  `leader` VARCHAR(50) COMMENT '负责人',
+                                  `phone` VARCHAR(20) COMMENT '联系电话',
+                                  `sort` INT DEFAULT 0 COMMENT '排序',
+                                  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                  `deleted_at` DATETIME NULL COMMENT '逻辑删除标识'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统科室表';
+
+-- 角色表
+CREATE TABLE `sys_role` (
+                            `role_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            `role_name` VARCHAR(50) NOT NULL COMMENT '角色名称',
+                            `role_code` VARCHAR(50) NOT NULL UNIQUE COMMENT '角色标识',
+                            `description` VARCHAR(255) COMMENT '角色描述',
+                            `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            `deleted_at` DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统角色表';
+
+-- 用户表 (医护人员/管理员)
+CREATE TABLE `sys_user` (
+                            `user_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            `user_name` VARCHAR(50) NOT NULL UNIQUE COMMENT '登录账号',
+                            `password` VARCHAR(255) NOT NULL COMMENT '密码hash',
+                            `real_name` VARCHAR(50) NOT NULL COMMENT '真实姓名',
+                            `phone` VARCHAR(20) COMMENT '手机号',
+                            `dept_id` BIGINT COMMENT '所属科室ID',
+                            `status` TINYINT DEFAULT 1 COMMENT '状态：1正常，0禁用',
+                            `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            `deleted_at` DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统用户表';
+
+-- 用户-角色关联表
+CREATE TABLE `sys_user_role` (
+                                 `user_id` BIGINT NOT NULL,
+                                 `role_id` BIGINT NOT NULL,
+                                 PRIMARY KEY (`user_id`, `role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户角色关联表';
+
+
+
+-- ============================================================================
+-- 供应商、耗材及采购扩展部分 (来自原新版结构补充)
+-- ============================================================================
+
+-- 供应商(厂商)基本信息表
+CREATE TABLE `sys_supplier_vendor` (
+                                       `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                       `vendor_code` VARCHAR(50) COMMENT '供应商编码',
+                                       `vendor_name` VARCHAR(100) NOT NULL COMMENT '供应商绝对名称',
+                                       `contact_person` VARCHAR(50) COMMENT '联系人',
+                                       `phone` VARCHAR(20) COMMENT '联系电话',
+                                       `address` VARCHAR(255) COMMENT '地址',
+                                       `status` TINYINT DEFAULT 1 COMMENT '资质状态：0停用，1正常',
+                                       `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                       `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                       `deleted_at` DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='供应商(厂商)基本信息表';
+
+-- 设备维护记录表
+CREATE TABLE `sys_ecg_equipment_maintain` (
+                                              `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                              `equipment_id` INT NOT NULL COMMENT '设备ID',
+                                              `maintain_time` DATETIME NOT NULL COMMENT '维护/维修时间',
+                                              `maintain_content` TEXT COMMENT '维护内容',
+                                              `technician` VARCHAR(50) COMMENT '维修人工号/姓名',
+                                              `cost` DECIMAL(10,2) COMMENT '维护费用',
+                                              `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备维护登记表';
+
+-- 耗材基本信息表
+CREATE TABLE `sys_consumable_dict` (
+                                       `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                       `consumable_code` VARCHAR(50) NOT NULL UNIQUE COMMENT '耗材唯一标识码',
+                                       `consumable_name` VARCHAR(100) NOT NULL COMMENT '耗材名称',
+                                       `specification` VARCHAR(100) COMMENT '规格型号',
+                                       `unit` VARCHAR(20) COMMENT '单位(盒/包/件)',
+                                       `vendor_id` BIGINT NOT NULL COMMENT '供应商ID',
+                                       `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                       `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='耗材字典表';
+
+-- 耗材库存表
+CREATE TABLE `sys_consumable_inventory` (
+                                            `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                            `consumable_id` BIGINT NOT NULL COMMENT '耗材字典ID',
+                                            `ward_id` INT COMMENT '所属病区/科室',
+                                            `stock_quantity` INT NOT NULL DEFAULT 0 COMMENT '库存数量',
+                                            `batch_number` VARCHAR(50) COMMENT '批号 (用于追溯)',
+                                            `expire_date` DATE COMMENT '过期时间',
+                                            `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                            `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='耗材库存表';
+
+-- 采购订单表
+CREATE TABLE `sys_procurement_order` (
+                                         `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                         `order_no` VARCHAR(50) NOT NULL UNIQUE COMMENT '采购单号',
+                                         `vendor_id` BIGINT NOT NULL COMMENT '供应商ID',
+                                         `total_amount` DECIMAL(12,2) COMMENT '总金额',
+                                         `status` TINYINT DEFAULT 0 COMMENT '状态：0待验收，1部分验收，2已完成',
+                                         `creator_id` BIGINT NOT NULL COMMENT '创建者ID',
+                                         `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                         `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购订单表';
+
+-- 采购验收单表
+CREATE TABLE `sys_procurement_acceptance` (
+                                              `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                              `order_id` BIGINT NOT NULL COMMENT '关联的采购订单ID',
+                                              `acceptance_no` VARCHAR(50) NOT NULL UNIQUE COMMENT '验收单号',
+                                              `accepted_by` BIGINT NOT NULL COMMENT '验收人ID',
+                                              `acceptance_time` DATETIME NOT NULL COMMENT '验收时间',
+                                              `result` TINYINT DEFAULT 1 COMMENT '验收结论：1合格入库，2退回',
+                                              `remarks` VARCHAR(255) COMMENT '备注',
+                                              `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购验收记录表';
+
+-- 质量控制报表生成记录
+CREATE TABLE `sys_quality_report_record` (
+                                             `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                             `report_name` VARCHAR(100) NOT NULL COMMENT '报表名称',
+                                             `report_type` VARCHAR(50) COMMENT '类型(设备质控/数据质控等)',
+                                             `period_start` DATE COMMENT '统计周期开始',
+                                             `period_end` DATE COMMENT '统计周期结束',
+                                             `file_url` VARCHAR(255) COMMENT '生成的文件地址',
+                                             `creator_id` BIGINT COMMENT '生成报表的操作人',
+                                             `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='质控报表记录';
+-- 科室表
+CREATE TABLE `sys_dept` (
+                            `dept_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            `parent_id` BIGINT DEFAULT 0 COMMENT '父级科室ID，0为顶级',
+                            `dept_name` VARCHAR(50) NOT NULL COMMENT '科室名称',
+                            `leader` VARCHAR(50) COMMENT '负责人',
+                            `phone` VARCHAR(20) COMMENT '联系电话',
+                            `sort` INT DEFAULT 0 COMMENT '排序',
+                            `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            `deleted_at` DATETIME NULL COMMENT '逻辑删除标识'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统科室表';
