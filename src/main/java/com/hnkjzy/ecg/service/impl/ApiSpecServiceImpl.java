@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ApiSpecServiceImpl implements ApiSpecService {
@@ -256,6 +257,7 @@ public class ApiSpecServiceImpl implements ApiSpecService {
         
         // 房间清理出来
         apiSpecMapper.clearBedForPatient(patientId);
+        apiSpecMapper.clearPatientBedAndWard(patientId);
         
         return new CommonVo.OperationResult(patientId, "exclude", "患者已标记为不纳入(0)");
     }
@@ -378,12 +380,29 @@ public class ApiSpecServiceImpl implements ApiSpecService {
     }
 
     @Override
+    @Transactional
     public CommonVo.OperationResult assignBed(String bedNo, BloodGlucoseDto.AssignBedRequest request) {
-        int affected = apiSpecMapper.assignBed(request.getPatientId(), bedNo);
-        if (affected == 0) {
+        String patientId = request.getPatientId();
+        Long roomId = request.getRoomId();
+
+        if (apiSpecMapper.countPatientExists(patientId) == 0) {
             throw new BusinessException(404, "患者不存在");
         }
-        return new CommonVo.OperationResult(bedNo, "assign-bed", "床位分配成功");
+        if (apiSpecMapper.countBedExists(roomId, bedNo) == 0) {
+            throw new BusinessException(404, "床位不存在");
+        }
+        if (apiSpecMapper.countBedOccupiedByOthers(patientId, roomId, bedNo) > 0) {
+            throw new BusinessException(409, "床位已被其他患者占用");
+        }
+
+        apiSpecMapper.clearBedForPatient(patientId);
+        int occupied = apiSpecMapper.occupyBedForPatient(patientId, roomId, bedNo);
+        if (occupied == 0) {
+            throw new BusinessException(409, "床位分配失败，请确认病区与床位匹配");
+        }
+
+        apiSpecMapper.assignBed(patientId, roomId, bedNo);
+        return new CommonVo.OperationResult(bedNo, "assign-bed", "床位和病区分配成功");
     }
 
     @Override

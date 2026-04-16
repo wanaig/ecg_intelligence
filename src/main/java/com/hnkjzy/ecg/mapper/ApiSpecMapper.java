@@ -300,8 +300,6 @@ public interface ApiSpecMapper {
                 <if test='scope.equals("unmanaged")'>
                     AND w.warning_id IS NOT NULL
                     AND IFNULL(w.warning_status, '0') IN ('0', '未纳入')
-                    AND p.bed_no IS NOT NULL
-                    AND p.bed_no != ''
                 </if>
                 <if test='scope.equals("abnormal")'>
                     AND w.warning_id IS NOT NULL
@@ -373,8 +371,6 @@ public interface ApiSpecMapper {
                 <if test='scope.equals("unmanaged")'>
                     AND w.warning_id IS NOT NULL
                     AND IFNULL(w.warning_status, '0') IN ('0', '未纳入')
-                    AND p.bed_no IS NOT NULL
-                    AND p.bed_no != ''
                 </if>
                 <if test='scope.equals("abnormal")'>
                     AND w.warning_id IS NOT NULL
@@ -589,6 +585,14 @@ public interface ApiSpecMapper {
         """)
     int clearPatientBed(@Param("patientId") String patientId);
 
+    @Update("""
+        UPDATE sys_ecg_patient_info
+        SET bed_no = NULL,
+            ward_id = NULL
+        WHERE inpatient_no = #{patientId} OR CAST(patient_id AS CHAR) = #{patientId}
+        """)
+    int clearPatientBedAndWard(@Param("patientId") String patientId);
+
     @Select("""
         <script>
         SELECT
@@ -667,18 +671,55 @@ public interface ApiSpecMapper {
 
     @Update("""
         UPDATE sys_ecg_patient_info
-        SET bed_no = #{bedNo}
+        SET bed_no = #{bedNo},
+            ward_id = #{roomId}
         WHERE inpatient_no = #{patientId} OR CAST(patient_id AS CHAR) = #{patientId}
         """)
-    int assignBed(@Param("patientId") String patientId, @Param("bedNo") String bedNo);
+    int assignBed(@Param("patientId") String patientId,
+                  @Param("roomId") Long roomId,
+                  @Param("bedNo") String bedNo);
 
-        @Select("""
-                SELECT COUNT(*)
-                FROM sys_ecg_patient_info
-                WHERE bed_no = #{bedNo}
-                    AND NOT (inpatient_no = #{patientId} OR CAST(patient_id AS CHAR) = #{patientId})
-                """)
-        int countBedOccupiedByOthers(@Param("patientId") String patientId, @Param("bedNo") String bedNo);
+    @Select("""
+        SELECT COUNT(*)
+        FROM sys_ecg_patient_info
+        WHERE inpatient_no = #{patientId} OR CAST(patient_id AS CHAR) = #{patientId}
+        """)
+    int countPatientExists(@Param("patientId") String patientId);
+
+    @Select("""
+        SELECT COUNT(*)
+        FROM bed_info
+        WHERE ward_id = #{roomId}
+          AND bed_no = #{bedNo}
+        """)
+    int countBedExists(@Param("roomId") Long roomId, @Param("bedNo") String bedNo);
+
+    @Select("""
+        SELECT COUNT(*)
+        FROM bed_info b
+        JOIN sys_ecg_patient_info p ON b.patient_id = p.patient_id
+        WHERE b.ward_id = #{roomId}
+          AND b.bed_no = #{bedNo}
+          AND IFNULL(b.status, 0) = 1
+          AND NOT (p.inpatient_no = #{patientId} OR CAST(p.patient_id AS CHAR) = #{patientId})
+        """)
+    int countBedOccupiedByOthers(@Param("patientId") String patientId,
+                                 @Param("roomId") Long roomId,
+                                 @Param("bedNo") String bedNo);
+
+    @Update("""
+        UPDATE bed_info b
+        JOIN sys_ecg_patient_info p ON p.inpatient_no = #{patientId} OR CAST(p.patient_id AS CHAR) = #{patientId}
+        SET b.status = 1,
+            b.patient_id = p.patient_id,
+            b.update_time = CURRENT_TIMESTAMP
+        WHERE b.ward_id = #{roomId}
+          AND b.bed_no = #{bedNo}
+                    AND (IFNULL(b.status, 0) = 0 OR b.patient_id = p.patient_id)
+        """)
+    int occupyBedForPatient(@Param("patientId") String patientId,
+                            @Param("roomId") Long roomId,
+                            @Param("bedNo") String bedNo);
 
     @Select("""
         SELECT

@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: '${MYSQL_URL:jdbc:mysql://localhost:3306/ecg_intelligence_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}'
+    url: '${MYSQL_URL:jdbc:mysql://localhost:3306/ecg_test1?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}'
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver

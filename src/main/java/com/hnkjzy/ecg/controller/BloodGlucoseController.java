@@ -226,6 +226,7 @@ public class BloodGlucoseController {
                                                                 @RequestBody(required = false) BloodGlucoseDto.PatientManageActionRequest request) {
         return ApiResponse.success(apiSpecService.includePatient(patientId, request));
     }
+    
 
     @PostMapping("/patients/{patientId}/exclude")
     public ApiResponse<CommonVo.OperationResult> excludePatient(@PathVariable @NotBlank(message = "patientId不能为空") String patientId,
