@@ -147,14 +147,16 @@ public class BloodGlucoseController {
     @GetMapping("/patients/unmanaged")
     public ApiResponse<PageResult<BloodGlucoseVo.PatientMetricItem>> unmanagedPatients(
             @RequestParam(required = false) String name,
+            @RequestParam(required = false) String patientId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) @Min(value = 1, message = "pageNum必须大于等于1") Integer pageNum,
             @RequestParam(required = false) @Min(value = 1, message = "pageSize必须大于等于1") Integer pageSize) {
+        String keyword = (patientId == null || patientId.isBlank()) ? name : patientId;
         return ApiResponse.success(apiSpecService.pagePatientMetrics(
                 "unmanaged",
-                name,
+            keyword,
                 status,
                 startDate,
                 endDate,

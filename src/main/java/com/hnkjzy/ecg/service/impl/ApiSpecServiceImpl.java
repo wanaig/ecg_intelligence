@@ -132,13 +132,14 @@ public class ApiSpecServiceImpl implements ApiSpecService {
                 wardId,
                 patientKeyword,
                 indexName,
+                condition,
                 startDate,
                 endDate,
                 excludeWard,
                 offset,
                 safeSize
         );
-        long total = apiSpecMapper.countWarningRows(status, wardId, patientKeyword, indexName, startDate, endDate, excludeWard);
+        long total = apiSpecMapper.countWarningRows(status, wardId, patientKeyword, indexName, condition, startDate, endDate, excludeWard);
 
         List<BloodGlucoseVo.WarningItem> list = rows == null
                 ? Collections.emptyList()
@@ -189,7 +190,7 @@ public class ApiSpecServiceImpl implements ApiSpecService {
                                                       String startDate,
                                                       String endDate,
                                                       String excludeWard) {
-        long total = apiSpecMapper.countWarningRows(status, wardId, patientKeyword, indexName, startDate, endDate, excludeWard);
+        long total = apiSpecMapper.countWarningRows(status, wardId, patientKeyword, indexName, condition, startDate, endDate, excludeWard);
         String fileName = "warnings-export-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".xlsx";
         return new BloodGlucoseVo.ExportResult("/api/files/" + fileName + "?total=" + total);
     }
@@ -407,7 +408,10 @@ public class ApiSpecServiceImpl implements ApiSpecService {
 
     @Override
     public WorkbenchVo.OverviewData getWorkbenchOverview(String dateType, String startDate, String endDate) {
-        WorkbenchOverview overview = analysisMapper.selectWorkbenchOverview();
+        DateRange dateRange = resolveDateRange(dateType, startDate, endDate);
+        WorkbenchOverview overview = dateRange == null
+                ? analysisMapper.selectWorkbenchOverview()
+                : apiSpecMapper.selectWorkbenchOverviewByDateRange(dateRange.startDate(), dateRange.endDate());
         if (overview == null) {
             return new WorkbenchVo.OverviewData(Collections.emptyList());
         }
@@ -1005,6 +1009,62 @@ public class ApiSpecServiceImpl implements ApiSpecService {
         return ward == null ? "" : nonBlank(ward.getWardPhone(), "");
     }
 
+    private DateRange resolveDateRange(String dateType, String startDate, String endDate) {
+        if (!hasText(dateType) && !hasText(startDate) && !hasText(endDate)) {
+            return null;
+        }
+
+        LocalDate today = LocalDate.now();
+        String type = hasText(dateType) ? dateType.trim().toLowerCase() : "custom";
+        LocalDate from;
+        LocalDate to;
+
+        switch (type) {
+            case "today", "今日" -> {
+                from = today;
+                to = today;
+            }
+            case "week", "本周" -> {
+                from = today.minusDays(6);
+                to = today;
+            }
+            case "month", "本月" -> {
+                from = today.withDayOfMonth(1);
+                to = today;
+            }
+            case "year", "本年" -> {
+                from = today.withDayOfYear(1);
+                to = today;
+            }
+            default -> {
+                from = parseDateOrDefault(startDate, today);
+                to = parseDateOrDefault(endDate, today);
+            }
+        }
+
+        if (from.isAfter(to)) {
+            LocalDate temp = from;
+            from = to;
+            to = temp;
+        }
+        return new DateRange(from.format(DATE_FORMATTER), to.format(DATE_FORMATTER));
+    }
+
+    private LocalDate parseDateOrDefault(String value, LocalDate defaultValue) {
+        if (!hasText(value)) {
+            return defaultValue;
+        }
+        String normalized = value.trim();
+        if (normalized.length() >= 10) {
+            normalized = normalized.substring(0, 10);
+        }
+        try {
+            return LocalDate.parse(normalized, DATE_FORMATTER);
+        } catch (Exception ex) {
+            return defaultValue;
+        }
+    }
+
     private int normalizePage(Integer pageNum) {
         return pageNum == null || pageNum < 1 ? 1 : pageNum;
     }
@@ -1085,5 +1145,8 @@ public class ApiSpecServiceImpl implements ApiSpecService {
 
     private <T> List<T> safeList(List<T> list) {
         return list == null ? Collections.emptyList() : list;
+    }
+
+    private record DateRange(String startDate, String endDate) {
     }
 }

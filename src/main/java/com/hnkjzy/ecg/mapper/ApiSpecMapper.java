@@ -2,6 +2,7 @@ package com.hnkjzy.ecg.mapper;
 
 import com.hnkjzy.ecg.model.WarningQueryRow;
 import com.hnkjzy.ecg.model.WaveformMetricRow;
+import com.hnkjzy.ecg.model.WorkbenchOverview;
 import com.hnkjzy.ecg.vo.AnalysisVo;
 import com.hnkjzy.ecg.vo.BloodGlucoseVo;
 import com.hnkjzy.ecg.vo.QualityVo;
@@ -61,6 +62,28 @@ public interface ApiSpecMapper {
             <if test='indexName != null and indexName != ""'>
                 AND (w.warning_type LIKE CONCAT('%', #{indexName}, '%') OR dict.type_name LIKE CONCAT('%', #{indexName}, '%'))
             </if>
+            <if test='condition != null and condition != ""'>
+                <if test='condition == ">"'>
+                    AND (
+                        w.warning_content LIKE '%高%'
+                        OR w.warning_content LIKE '%快%'
+                        OR w.warning_content LIKE '%升%'
+                        OR w.warning_type LIKE '%高%'
+                        OR w.warning_type LIKE '%快%'
+                        OR w.warning_type LIKE '%过速%'
+                    )
+                </if>
+                <if test='condition == "&lt;"'>
+                    AND (
+                        w.warning_content LIKE '%低%'
+                        OR w.warning_content LIKE '%缓%'
+                        OR w.warning_content LIKE '%降%'
+                        OR w.warning_type LIKE '%低%'
+                        OR w.warning_type LIKE '%缓%'
+                        OR w.warning_type LIKE '%过缓%'
+                    )
+                </if>
+            </if>
             <if test='startDate != null and startDate != ""'>
                 AND DATE(w.warning_time) &gt;= #{startDate}
             </if>
@@ -79,6 +102,7 @@ public interface ApiSpecMapper {
                                           @Param("wardId") Long wardId,
                                           @Param("patientKeyword") String patientKeyword,
                                           @Param("indexName") String indexName,
+                                          @Param("condition") String condition,
                                           @Param("startDate") String startDate,
                                           @Param("endDate") String endDate,
                                           @Param("excludeWard") String excludeWard,
@@ -112,6 +136,28 @@ public interface ApiSpecMapper {
             <if test='indexName != null and indexName != ""'>
                 AND (w.warning_type LIKE CONCAT('%', #{indexName}, '%') OR dict.type_name LIKE CONCAT('%', #{indexName}, '%'))
             </if>
+            <if test='condition != null and condition != ""'>
+                <if test='condition == ">"'>
+                    AND (
+                        w.warning_content LIKE '%高%'
+                        OR w.warning_content LIKE '%快%'
+                        OR w.warning_content LIKE '%升%'
+                        OR w.warning_type LIKE '%高%'
+                        OR w.warning_type LIKE '%快%'
+                        OR w.warning_type LIKE '%过速%'
+                    )
+                </if>
+                <if test='condition == "&lt;"'>
+                    AND (
+                        w.warning_content LIKE '%低%'
+                        OR w.warning_content LIKE '%缓%'
+                        OR w.warning_content LIKE '%降%'
+                        OR w.warning_type LIKE '%低%'
+                        OR w.warning_type LIKE '%缓%'
+                        OR w.warning_type LIKE '%过缓%'
+                    )
+                </if>
+            </if>
             <if test='startDate != null and startDate != ""'>
                 AND DATE(w.warning_time) &gt;= #{startDate}
             </if>
@@ -128,6 +174,7 @@ public interface ApiSpecMapper {
                           @Param("wardId") Long wardId,
                           @Param("patientKeyword") String patientKeyword,
                           @Param("indexName") String indexName,
+                          @Param("condition") String condition,
                           @Param("startDate") String startDate,
                           @Param("endDate") String endDate,
                           @Param("excludeWard") String excludeWard);
@@ -277,7 +324,7 @@ public interface ApiSpecMapper {
         )
         <where>
             <if test='name != null and name != ""'>
-                AND p.patient_name LIKE CONCAT('%', #{name}, '%')
+                AND (p.patient_name LIKE CONCAT('%', #{name}, '%') OR p.inpatient_no LIKE CONCAT('%', #{name}, '%'))
             </if>
             <if test='startDate != null and startDate != ""'>
                 AND DATE(COALESCE(m.start_time, m.create_time)) &gt;= #{startDate}
@@ -348,7 +395,7 @@ public interface ApiSpecMapper {
         )
         <where>
             <if test='name != null and name != ""'>
-                AND p.patient_name LIKE CONCAT('%', #{name}, '%')
+                AND (p.patient_name LIKE CONCAT('%', #{name}, '%') OR p.inpatient_no LIKE CONCAT('%', #{name}, '%'))
             </if>
             <if test='startDate != null and startDate != ""'>
                 AND DATE(COALESCE(m.start_time, m.create_time)) &gt;= #{startDate}
@@ -733,6 +780,40 @@ public interface ApiSpecMapper {
         LIMIT 10
         """)
     List<WorkbenchVo.WardWarningRankItem> listWardWarningRank();
+
+    @Select("""
+        SELECT
+            (
+                SELECT COUNT(DISTINCT m.patient_id)
+                FROM sys_ecg_measure_record m
+                WHERE DATE(COALESCE(m.start_time, m.create_time)) &gt;= #{startDate}
+                  AND DATE(COALESCE(m.start_time, m.create_time)) &lt;= #{endDate}
+            ) AS total_patients,
+            (
+                SELECT COUNT(*)
+                FROM sys_ecg_abnormal_warning w
+                WHERE DATE(w.warning_time) &gt;= #{startDate}
+                  AND DATE(w.warning_time) &lt;= #{endDate}
+            ) AS total_warnings,
+            (
+                SELECT COUNT(*)
+                FROM sys_ecg_abnormal_warning w
+                WHERE DATE(w.warning_time) &gt;= #{startDate}
+                  AND DATE(w.warning_time) &lt;= #{endDate}
+                  AND IFNULL(w.warning_status, '0') IN ('1', '已纳入', '未处理', '处理中')
+            ) AS unhandled_warnings,
+            (
+                SELECT COUNT(*)
+                FROM sys_ecg_report r
+                WHERE DATE(COALESCE(r.create_time, NOW())) &gt;= #{startDate}
+                  AND DATE(COALESCE(r.create_time, NOW())) &lt;= #{endDate}
+                  AND r.report_status IN ('待审核', '草稿')
+            ) AS pending_reports,
+            (SELECT COUNT(*) FROM sys_ecg_equipment_info) AS total_devices,
+            (SELECT COUNT(*) FROM sys_ecg_ward_info) AS total_wards
+        """)
+    WorkbenchOverview selectWorkbenchOverviewByDateRange(@Param("startDate") String startDate,
+                                                         @Param("endDate") String endDate);
 
     @Select("""
         <script>
